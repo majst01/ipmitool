@@ -9,6 +9,7 @@ pub mod checksum;
 pub mod consts;
 pub mod error;
 pub mod interface;
+pub mod oem;
 pub mod types;
 pub mod values;
 

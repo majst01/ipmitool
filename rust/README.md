@@ -17,6 +17,7 @@ This is a first vertical slice. It implements:
 | `chassis` command (`status`, `power`, `policy`, `poh`, `restart_cause`, `identify`, `selftest`) | done |
 | top-level `power` shortcut | done |
 | `mc` command (`info`, `reset`, `selftest`, `getenables`, `setenables`, `guid`) | done |
+| OEM/IANA PEN registry and product-name lookup | done |
 | Bridging (`-t`/`-T`/`-b`/`-B`) and SOL | not yet |
 | Other interfaces (`lan`, `open`, serial, ...) | not yet |
 
@@ -72,3 +73,8 @@ layout.
   registry is ported.
 - The `-a` password prompt reads from stdin with echo enabled (no external
   crate is used for terminal handling yet).
+- Manufacturer names are read at runtime from the IANA PEN registry
+  (`enterprise-numbers`, or `enterprise-numbers.txt` as shipped by
+  `iana-etc`), searched in `$HOME/.local/usr/share/misc`, `/usr/share/misc`
+  and `/usr/local/share/misc`. If none is found, manufacturers fall back to
+  `Unknown (0x...)`, exactly like the C implementation without the PEN file.

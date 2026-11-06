@@ -130,11 +130,20 @@ fn info(intf: &mut dyn Interface) -> i32 {
         ipmi_version & 0x0f,
         (ipmi_version & 0xf0) >> 4
     );
+    let registry = ipmi_core::oem::OemRegistry::load();
+
     println!("Manufacturer ID           : {manufacturer}");
-    println!("Manufacturer Name         : Unknown (0x{manufacturer:02X})");
+    println!(
+        "Manufacturer Name         : {}",
+        registry.manufacturer_name(manufacturer)
+    );
     println!(
         "Product ID                : {product_id} (0x{:02x}{:02x})",
         d[10], d[9]
+    );
+    println!(
+        "Product Name              : {}",
+        registry.product_name(manufacturer, product_id)
     );
     println!(
         "Device Available          : {}",
