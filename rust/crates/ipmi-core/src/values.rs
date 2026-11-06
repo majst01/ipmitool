@@ -45,25 +45,27 @@ const NETFN_VALS: &[ValStr] = &[
 ];
 
 const POWER_CONTROL_VALS: &[ValStr] = &[
-    ValStr::new(0x0, "power down"),
-    ValStr::new(0x1, "power up"),
-    ValStr::new(0x2, "power cycle"),
-    ValStr::new(0x3, "hard reset"),
-    ValStr::new(0x4, "pulse diagnostic interrupt"),
-    ValStr::new(0x5, "soft shutdown"),
+    ValStr::new(0x0, "Down/Off"),
+    ValStr::new(0x1, "Up/On"),
+    ValStr::new(0x2, "Cycle"),
+    ValStr::new(0x3, "Reset"),
+    ValStr::new(0x4, "Diag"),
+    ValStr::new(0x5, "Soft"),
 ];
 
 const CHASSIS_RESTART_CAUSE_VALS: &[ValStr] = &[
     ValStr::new(0x0, "unknown"),
-    ValStr::new(0x1, "chassis control command"),
+    ValStr::new(0x1, "chassis power control command"),
     ValStr::new(0x2, "reset via pushbutton"),
-    ValStr::new(0x3, "power button"),
-    ValStr::new(0x4, "watchdog expiration"),
+    ValStr::new(0x3, "power-up via pushbutton"),
+    ValStr::new(0x4, "watchdog expired"),
     ValStr::new(0x5, "OEM"),
-    ValStr::new(0x6, "power policy always restore"),
-    ValStr::new(0x7, "power policy previous state"),
-    ValStr::new(0x8, "soft reset"),
-    ValStr::new(0x9, "power unit reset"),
+    ValStr::new(0x6, "power-up due to always-restore power policy"),
+    ValStr::new(0x7, "power-up due to restore-previous power policy"),
+    ValStr::new(0x8, "reset via PEF"),
+    ValStr::new(0x9, "power-cycle via PEF"),
+    ValStr::new(0xa, "soft reset"),
+    ValStr::new(0xb, "power-up via RTC wakeup"),
 ];
 
 fn lookup(vals: &[ValStr], s: &str, case_sensitive: bool) -> Option<u8> {
@@ -121,5 +123,36 @@ pub fn print_valstr(vals: &[ValStr], title: &str) {
     }
     for v in vals {
         eprintln!("\t{:<16}  {}", v.val, v.name);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Strings mirror the C tables in lib/ipmi_strings.c
+    // (ipmi_chassis_power_control_vals / ipmi_chassis_restart_cause_vals).
+    #[test]
+    fn power_control_strings_match_c() {
+        assert_eq!(power_control_str(0x0), "Down/Off");
+        assert_eq!(power_control_str(0x1), "Up/On");
+        assert_eq!(power_control_str(0x2), "Cycle");
+        assert_eq!(power_control_str(0x3), "Reset");
+        assert_eq!(power_control_str(0x4), "Diag");
+        assert_eq!(power_control_str(0x5), "Soft");
+    }
+
+    #[test]
+    fn restart_cause_strings_match_c() {
+        assert_eq!(
+            chassis_restart_cause_str(0x1),
+            "chassis power control command"
+        );
+        assert_eq!(chassis_restart_cause_str(0x3), "power-up via pushbutton");
+        assert_eq!(chassis_restart_cause_str(0x4), "watchdog expired");
+        assert_eq!(chassis_restart_cause_str(0x8), "reset via PEF");
+        assert_eq!(chassis_restart_cause_str(0x9), "power-cycle via PEF");
+        assert_eq!(chassis_restart_cause_str(0xa), "soft reset");
+        assert_eq!(chassis_restart_cause_str(0xb), "power-up via RTC wakeup");
     }
 }

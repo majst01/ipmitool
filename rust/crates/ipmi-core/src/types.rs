@@ -157,7 +157,7 @@ impl Default for SessionParams {
             timeout: 0,
             kg: [0; consts::IPMI_KG_BUFFER_SIZE],
             lookupbit: 0x10,
-            sol_escape_char: 0x1b,
+            sol_escape_char: b'~',
             target_lun: 0,
             target_addr: 0,
             target_channel: 0,

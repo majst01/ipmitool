@@ -35,6 +35,7 @@ pub struct Options {
     pub transit_channel: u8,
     pub my_addr: u8,
     pub kgkey: Option<String>,
+    pub escape_char: u8,
     pub verbose: u32,
     pub csv: bool,
 }
@@ -60,6 +61,7 @@ impl Default for Options {
             transit_channel: 0,
             my_addr: consts::BMC_SLAVE_ADDR,
             kgkey: None,
+            escape_char: b'~',
             verbose: 0,
             csv: false,
         }
@@ -210,8 +212,10 @@ pub fn parse(argv: &[String]) -> Result<Parsed, String> {
                     'l' => opts.target_lun = parse_u8(&req(value, "-l")?).ok_or("invalid lun")?,
                     'm' => opts.my_addr = parse_u8(&req(value, "-m")?).ok_or("invalid address")?,
                     'e' => {
-                        // SOL escape character; accepted and ignored for now.
-                        let _ = value;
+                        // SOL escape character; ipmitool uses the first byte.
+                        let v = req(value, "-e")?;
+                        opts.escape_char =
+                            v.bytes().next().ok_or("option -e requires a character")?;
                     }
                     'o' | 'g' | 's' | 'S' | 'D' | 'O' | 'd' | 'z' => {
                         // OEM / device / serial / caches: accepted but unused.

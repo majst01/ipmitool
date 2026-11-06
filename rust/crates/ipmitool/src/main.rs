@@ -73,6 +73,7 @@ fn run(argv: &[String]) -> Result<i32, String> {
     params.transit_channel = opts.transit_channel;
     params.my_addr = opts.my_addr as u32;
     params.cipher_suite = opts.cipher;
+    params.sol_escape_char = opts.escape_char;
     if let Some(kg) = &opts.kgkey {
         let bytes = kg.as_bytes();
         let n = bytes.len().min(params.kg.len());

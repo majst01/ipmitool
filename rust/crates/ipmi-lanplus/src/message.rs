@@ -154,12 +154,14 @@ pub fn build_v2x(session: &mut Session, payload_type: u8, payload: &[u8]) -> Vec
         m.extend(std::iter::repeat(0xff).take(pad));
         m.push(pad as u8);
         m.push(0x07);
-        let hmac_input_size = OFF_PAYLOAD + body.len() + pad + 2;
+        // The integrity HMAC covers the session header from the auth-type byte
+        // through the end of the trailer, i.e. everything built so far after
+        // `OFF_AUTHTYPE`.
         let auth_len = session.authcode_len();
         let mac = crypto::hmac_integrity(
             session.v2.integrity_alg,
             &session.v2.k1.clone(),
-            &m[OFF_AUTHTYPE..OFF_AUTHTYPE + hmac_input_size],
+            &m[OFF_AUTHTYPE..],
         );
         m.extend_from_slice(&mac[..auth_len]);
     }
@@ -437,5 +439,35 @@ mod tests {
                 .unwrap(),
         );
         assert_eq!(plen as usize, 4);
+    }
+
+    #[test]
+    fn build_v2x_active_integrity_covers_header_and_trailer() {
+        // Regression: the integrity HMAC must cover everything from the
+        // auth-type byte to the end of the trailer, and the slice must not run
+        // past the buffer. This previously used OFF_PAYLOAD as the length
+        // instead of OFF_PAYLOAD - OFF_AUTHTYPE and panicked.
+        let mut session = Session::new(1, [0u8; 20]);
+        session.v2.state = SessionState::Active;
+        session.v2.integrity_alg = consts::INTEGRITY_HMAC_SHA1_96;
+        session.v2.crypt_alg = consts::CRYPT_NONE;
+        session.v2.k1 = vec![0x11; 20];
+
+        let m = build_v2x(
+            &mut session,
+            consts::PAYLOAD_TYPE_IPMI,
+            &[1, 2, 3, 4, 5, 6, 7, 8],
+        );
+
+        let auth_len = 12; // HMAC-SHA1-96
+        let trailer_end = m.len() - auth_len;
+        // Next-header byte is the last byte before the authcode.
+        assert_eq!(m[trailer_end - 1], 0x07);
+        let expected = crypto::hmac_integrity(
+            consts::INTEGRITY_HMAC_SHA1_96,
+            &session.v2.k1.clone(),
+            &m[OFF_AUTHTYPE..trailer_end],
+        );
+        assert_eq!(&m[trailer_end..], &expected[..auth_len]);
     }
 }
