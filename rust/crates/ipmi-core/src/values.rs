@@ -19,6 +19,7 @@ const PRIVLVL_VALS: &[ValStr] = &[
     ValStr::new(crate::consts::SESSION_PRIV_OPERATOR, "OPERATOR"),
     ValStr::new(crate::consts::SESSION_PRIV_ADMIN, "ADMINISTRATOR"),
     ValStr::new(crate::consts::SESSION_PRIV_OEM, "OEM"),
+    ValStr::new(crate::consts::SESSION_PRIV_NOACCESS, "NO ACCESS"),
 ];
 
 const AUTH_TYPE_VALS: &[ValStr] = &[

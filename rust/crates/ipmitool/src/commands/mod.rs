@@ -3,3 +3,4 @@
 pub mod chassis;
 pub mod mc;
 pub mod raw;
+pub mod sol;

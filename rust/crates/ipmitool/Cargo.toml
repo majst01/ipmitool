@@ -13,3 +13,6 @@ path = "src/main.rs"
 [dependencies]
 ipmi-core.workspace = true
 ipmi-lanplus.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

@@ -18,7 +18,8 @@ This is a first vertical slice. It implements:
 | top-level `power` shortcut | done |
 | `mc` command (`info`, `reset`, `selftest`, `getenables`, `setenables`, `guid`) | done |
 | OEM/IANA PEN registry and product-name lookup | done |
-| Bridging (`-t`/`-T`/`-b`/`-B`) and SOL | not yet |
+| `sol` command (`info`, `set`, `payload`, `activate`, `deactivate`) | done (Unix terminal) |
+| Bridging (`-t`/`-T`/`-b`/`-B`) | not yet |
 | Other interfaces (`lan`, `open`, serial, ...) | not yet |
 
 ## Layout
@@ -47,6 +48,8 @@ ipmitool -I lanplus -H <bmc> -U <user> -P <pass> chassis power status
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> power on
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> raw 0x06 0x01
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> mc info
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> sol activate
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> sol info
 ```
 
 Supported options include `-I`, `-H`, `-p`, `-U`, `-P`/`-f`/`-E`/`-a`,
@@ -60,17 +63,17 @@ cargo test
 ```
 
 Unit tests cover checksum computation, the cipher-suite table, request
-checksums, response parsing, AES confidentiality round-trips and RAKP message
-layout.
+checksums, response parsing, AES confidentiality round-trips, RAKP message
+layout, the IANA PEN registry parser and SOL packet handling.
 
 ## Notes / known gaps
 
 - Only the `lanplus` interface is implemented. If no `-H` is given the CLI
   reports that no hostname was specified.
-- Bridged requests and Serial-over-LAN are not implemented, so plain
-  `raw`/`chassis`/`mc` commands target the local BMC only.
-- `mc info` prints `Manufacturer Name : Unknown (...)` until the OEM/IANA
-  registry is ported.
+- Bridged requests are not implemented, so plain `raw`/`chassis`/`mc`
+  commands target the local BMC only.
+- `sol activate` needs a Unix terminal for raw mode; `sol looptest` and the
+  `^Z`/`^X` suspend escape sequences are not implemented.
 - The `-a` password prompt reads from stdin with echo enabled (no external
   crate is used for terminal handling yet).
 - Manufacturer names are read at runtime from the IANA PEN registry

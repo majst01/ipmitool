@@ -11,6 +11,10 @@ use std::time::Duration;
 use ipmi_core::consts;
 use ipmi_core::error::{Error, Result};
 use ipmi_core::interface::Interface;
+use ipmi_core::sol::{
+    SolActivateRequest, SolActivateResponse, SolPacket, IPMI_ACTIVATE_PAYLOAD,
+    IPMI_DEACTIVATE_PAYLOAD,
+};
 use ipmi_core::types::{CipherSuite, Request, Response, SessionParams};
 
 use crate::message::{self, SessionHeader};
@@ -45,6 +49,16 @@ pub struct LanPlus {
     opened: bool,
     /// Rolling 6-bit IPMI request sequence number.
     rq_seq: u8,
+    /// Rolling 4-bit SOL packet sequence number.
+    sol_seq: u8,
+    /// Largest inbound SOL payload the BMC will accept.
+    sol_max_inbound: usize,
+    /// Largest outbound SOL payload the BMC will send.
+    sol_max_outbound: usize,
+    /// Sequence number of the last received SOL packet (for de-duplication).
+    sol_last_recv_seq: u8,
+    /// Data length of the last received SOL packet.
+    sol_last_recv_len: u8,
 }
 
 impl LanPlus {
@@ -57,6 +71,11 @@ impl LanPlus {
             socket: None,
             opened: false,
             rq_seq: 0,
+            sol_seq: 1,
+            sol_max_inbound: 256,
+            sol_max_outbound: 256,
+            sol_last_recv_seq: 0,
+            sol_last_recv_len: 0,
         }
     }
 
@@ -536,6 +555,215 @@ impl LanPlus {
         self.session.as_mut().unwrap().v2.state = SessionState::CloseSent;
         let _ = self.send_ipmi(&req);
     }
+
+    /// Next 4-bit SOL packet sequence number (1..=15).
+    fn next_sol_seq(&mut self) -> u8 {
+        if self.sol_seq > 0x0f {
+            self.sol_seq = 1;
+        }
+        let seq = self.sol_seq;
+        self.sol_seq = self.sol_seq.wrapping_add(1);
+        seq
+    }
+
+    /// Build and transmit a SOL payload packet without waiting for an ACK.
+    fn transmit_sol(&mut self, pkt: &SolPacket) -> Result<()> {
+        let payload = pkt.to_bytes();
+        let max = self.sol_max_inbound.max(1);
+        if payload.len() > max {
+            return Err(Error::Invalid(format!(
+                "SOL packet exceeds inbound payload size ({max})"
+            )));
+        }
+        let msg = {
+            let session = self
+                .session
+                .as_mut()
+                .ok_or_else(|| Error::Protocol("no session".into()))?;
+            message::build_v2x(session, consts::PAYLOAD_TYPE_SOL, &payload)
+        };
+        self.send_raw(&msg)
+    }
+
+    /// Receive one SOL packet, ACK it and trim any duplicate data.
+    fn recv_sol_packet(&mut self) -> Result<SolPacket> {
+        loop {
+            let (header, payload) = self.recv_payload()?;
+            if header.payload_type != consts::PAYLOAD_TYPE_SOL {
+                continue;
+            }
+            let Some(mut pkt) = SolPacket::from_bytes(&payload) else {
+                continue;
+            };
+            let unaltered_len = pkt.data.len() as u8;
+
+            // ACK packets that carry a sequence number.
+            if pkt.sequence != 0 {
+                let ack = SolPacket::ack(pkt.sequence, unaltered_len);
+                let _ = self.transmit_sol(&ack);
+
+                // De-duplicate retransmissions: only surface newly appended
+                // data for a repeated sequence number.
+                if pkt.sequence == self.sol_last_recv_seq {
+                    let new = pkt.data.len() as i64 - self.sol_last_recv_len as i64;
+                    if new > 0 {
+                        let skip = pkt.data.len() - new as usize;
+                        pkt.data = pkt.data[skip..].to_vec();
+                    } else {
+                        pkt.data.clear();
+                    }
+                }
+                self.sol_last_recv_seq = pkt.sequence;
+                self.sol_last_recv_len = unaltered_len;
+            }
+            return Ok(pkt);
+        }
+    }
+
+    /// Activate an SOL payload (`Activate Payload`).
+    fn do_sol_activate(&mut self, req: &SolActivateRequest) -> Result<SolActivateResponse> {
+        if !self.opened {
+            self.open()?;
+        }
+        let mut data = vec![0u8; 6];
+        data[0] = consts::PAYLOAD_TYPE_SOL;
+        data[1] = req.instance;
+        let mut flags = 0u8;
+        if req.encryption {
+            flags |= 0x80;
+        }
+        if req.authentication {
+            flags |= 0x40;
+        }
+        // Deferred serial alert plus "BMC does not assert CTS" by default.
+        flags |= 0x04;
+        if !req.assert_cts {
+            flags |= 0x02;
+        }
+        data[2] = flags;
+
+        let mut request = Request::new(consts::NETFN_APP, IPMI_ACTIVATE_PAYLOAD);
+        request.data = data;
+        let rsp = self.send_ipmi(&request)?;
+        match rsp.ccode {
+            0x00 => {}
+            0x80 => {
+                return Err(Error::Session(
+                    "SOL payload already active on another session".into(),
+                ))
+            }
+            0x81 => return Err(Error::Session("SOL payload disabled".into())),
+            0x82 => {
+                return Err(Error::Session(
+                    "SOL payload activation limit reached".into(),
+                ))
+            }
+            0x83 => {
+                return Err(Error::Session(
+                    "cannot activate SOL payload with encryption".into(),
+                ))
+            }
+            0x84 => {
+                return Err(Error::Session(
+                    "cannot activate SOL payload without encryption".into(),
+                ))
+            }
+            code => {
+                return Err(Error::Completion {
+                    code,
+                    command: Some("activating SOL payload".into()),
+                })
+            }
+        }
+
+        let resp = SolActivateResponse::parse(&rsp.data)?;
+        self.sol_max_inbound = resp.inbound_payload_size as usize;
+        self.sol_max_outbound = resp.outbound_payload_size as usize;
+
+        if resp.port != 0 && resp.port != self.params.port {
+            // Tolerate a byte-swapped port, as ipmitool does.
+            if resp.port.swap_bytes() != self.params.port {
+                return Err(Error::Protocol(
+                    "BMC requests SOL session on different port".into(),
+                ));
+            }
+        }
+        Ok(resp)
+    }
+
+    /// Deactivate an SOL payload (`Deactivate Payload`).
+    fn do_sol_deactivate(&mut self, instance: u8) -> Result<()> {
+        if !self.opened {
+            self.open()?;
+        }
+        let mut data = vec![0u8; 6];
+        data[0] = consts::PAYLOAD_TYPE_SOL;
+        data[1] = instance;
+        let mut request = Request::new(consts::NETFN_APP, IPMI_DEACTIVATE_PAYLOAD);
+        request.data = data;
+        let rsp = self.send_ipmi(&request)?;
+        match rsp.ccode {
+            0x00 => Ok(()),
+            0x80 => Err(Error::Completion {
+                code: 0x80,
+                command: Some("SOL payload already de-activated".into()),
+            }),
+            0x81 => Err(Error::Completion {
+                code: 0x81,
+                command: Some("SOL payload type disabled".into()),
+            }),
+            code => Err(Error::Completion {
+                code,
+                command: Some("deactivate SOL payload".into()),
+            }),
+        }
+    }
+
+    /// Send an SOL packet, waiting for an ACK and handling partial ACKs.
+    fn do_sol_send(&mut self, pkt: &SolPacket) -> Result<SolPacket> {
+        if !self.opened {
+            self.open()?;
+        }
+        if !self.session_active() {
+            return Err(Error::Session("no active session".into()));
+        }
+
+        let mut current = pkt.clone();
+        current.acked = 0;
+        current.accepted = 0;
+
+        let retries = self.params.retry.max(1) as usize;
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            current.sequence = self.next_sol_seq();
+            self.transmit_sol(&current)?;
+
+            match self.recv_sol_packet() {
+                Ok(rsp) => {
+                    if rsp.acks(current.sequence) {
+                        let accepted = rsp.accepted as usize;
+                        if accepted < current.data.len()
+                            && !rsp.is_nack()
+                            && !rsp.transfer_unavailable()
+                        {
+                            current.data = current.data[accepted..].to_vec();
+                            if attempt < 8 {
+                                continue;
+                            }
+                        }
+                    }
+                    return Ok(rsp);
+                }
+                Err(Error::Timeout) => {
+                    if attempt >= retries {
+                        return Err(Error::Timeout);
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
 }
 
 fn map_io(e: std::io::Error) -> Error {
@@ -679,5 +907,36 @@ impl Interface for LanPlus {
 
     fn session_params_mut(&mut self) -> &mut SessionParams {
         &mut self.params
+    }
+
+    fn sol_activate(&mut self, req: &SolActivateRequest) -> Result<SolActivateResponse> {
+        self.do_sol_activate(req)
+    }
+
+    fn sol_deactivate(&mut self, instance: u8) -> Result<()> {
+        self.do_sol_deactivate(instance)
+    }
+
+    fn sol_send(&mut self, pkt: &SolPacket) -> Result<SolPacket> {
+        self.do_sol_send(pkt)
+    }
+
+    fn sol_recv(&mut self) -> Result<SolPacket> {
+        if !self.opened {
+            self.open()?;
+        }
+        self.recv_sol_packet()
+    }
+
+    fn raw_fd(&self) -> Option<i32> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::io::AsRawFd;
+            self.socket.as_ref().map(|s| s.as_raw_fd())
+        }
+        #[cfg(not(unix))]
+        {
+            None
+        }
     }
 }

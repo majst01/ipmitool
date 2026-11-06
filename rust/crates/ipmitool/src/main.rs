@@ -102,6 +102,7 @@ fn dispatch(intf: &mut dyn Interface, command: &str, args: &[String]) -> i32 {
         "chassis" => commands::chassis::main(intf, args),
         "power" => commands::chassis::power_shortcut(intf, args),
         "mc" | "bmc" => commands::mc::main(intf, args),
+        "sol" => commands::sol::main(intf, args),
         other => {
             eprintln!("Invalid command: {other}");
             -1
@@ -134,4 +135,5 @@ fn print_usage() {
     println!("  chassis     Get chassis status and set power state");
     println!("  power       Shortcut to chassis power commands");
     println!("  mc          Management Controller status and global enables");
+    println!("  sol         Configure and connect to the Serial-over-LAN interface");
 }

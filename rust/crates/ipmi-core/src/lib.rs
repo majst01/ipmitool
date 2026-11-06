@@ -10,9 +10,11 @@ pub mod consts;
 pub mod error;
 pub mod interface;
 pub mod oem;
+pub mod sol;
 pub mod types;
 pub mod values;
 
 pub use error::{Error, Result};
 pub use interface::Interface;
+pub use sol::{SolActivateRequest, SolActivateResponse, SolPacket};
 pub use types::{CipherSuite, Request, Response, SessionParams};
