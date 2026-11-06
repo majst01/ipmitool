@@ -19,6 +19,8 @@ This is a first vertical slice. It implements:
 | `mc` command (`info`, `reset`, `selftest`, `getenables`, `setenables`, `guid`) | done |
 | OEM/IANA PEN registry and product-name lookup | done |
 | `sol` command (`info`, `set`, `payload`, `activate`, `deactivate`) | done (Unix terminal) |
+| `fru` command read paths (`print`/`list`, `read`) | done |
+| `fru` write paths (`write`, `edit`, `get`, `internaluse`, `upgEkey`) | not yet (stubbed) |
 | Bridging (`-t`/`-T`/`-b`/`-B`) | not yet |
 | Other interfaces (`lan`, `open`, serial, ...) | not yet |
 
@@ -50,6 +52,9 @@ ipmitool -I lanplus -H <bmc> -U <user> -P <pass> raw 0x06 0x01
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> mc info
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> sol activate
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> sol info
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru print
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru print 0
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru read 0 /tmp/fru.bin
 ```
 
 Supported options include `-I`, `-H`, `-p`, `-U`, `-P`/`-f`/`-E`/`-a`,
@@ -64,7 +69,8 @@ cargo test
 
 Unit tests cover checksum computation, the cipher-suite table, request
 checksums, response parsing, AES confidentiality round-trips, RAKP message
-layout, the IANA PEN registry parser and SOL packet handling.
+layout, the IANA PEN registry parser, SOL packet handling and FRU area string
+decoding.
 
 ## Notes / known gaps
 
@@ -76,6 +82,17 @@ layout, the IANA PEN registry parser and SOL packet handling.
   `^Z`/`^X` suspend escape sequences are not implemented.
 - The `-a` password prompt reads from stdin with echo enabled (no external
   crate is used for terminal handling yet).
+- `fru` implements only the read paths. `fru print`/`list` (builtin device 0
+  and `fru print <id>`) and `fru read <id> <file>` are supported; `write`,
+  `edit`, `get`, `internaluse` and `upgEkey` are stubbed with a
+  "not implemented" message.
+- `fru print` (without an id) walks only the builtin FRU device: the SDR-based
+  FRU / MC locator scan from the C implementation is not implemented, so
+  satellite-controller FRUs are not enumerated.
+- PICMG OEM extension multi-records are recognised but their contents are not
+  decoded (the record is reported and skipped).
+- The FRU reader uses the same per-request read size as the C lanplus
+  transport (`IPMI_LAN_MAX_RESPONSE_SIZE - 2`); word-access FRUs are handled.
 - Manufacturer names are read at runtime from the IANA PEN registry
   (`enterprise-numbers`, or `enterprise-numbers.txt` as shipped by
   `iana-etc`), searched in `$HOME/.local/usr/share/misc`, `/usr/share/misc`

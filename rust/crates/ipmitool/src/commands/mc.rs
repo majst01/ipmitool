@@ -447,6 +447,15 @@ fn guid(intf: &mut dyn Interface, args: &[String]) -> i32 {
     0
 }
 
+/// Render a 16-byte GUID/UUID the way C's `ipmi_guid2str(..., GUID_AUTO)` does,
+/// auto-detecting the byte order. Used by the `fru` management-access record.
+pub fn guid_auto_str(data: &[u8]) -> String {
+    let mut raw = [0u8; 16];
+    let n = data.len().min(16);
+    raw[..n].copy_from_slice(&data[..n]);
+    parse_guid(&raw, GuidMode::Auto).to_string()
+}
+
 struct ParsedGuid {
     mode: GuidMode,
     version: u8,
