@@ -55,7 +55,7 @@ pub fn completion_code_str(cc: u8) -> String {
         0xd5 => "Command not supported in present state",
         0xd6 => "Cannot execute command, command disabled",
         0xff => "Unspecified error",
-        _ => return format!("Unknown (0x{cc:02x})"),
+        _ => return format!("Unknown (0x{cc:02X})"),
     };
     s.to_string()
 }

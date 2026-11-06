@@ -21,6 +21,7 @@ This is a first vertical slice. It implements:
 | `sol` command (`info`, `set`, `payload`, `activate`, `deactivate`) | done (Unix terminal) |
 | `fru` command read paths (`print`/`list`, `read`) | done |
 | `fru` write paths (`write`, `edit`, `get`, `internaluse`, `upgEkey`) | not yet (stubbed) |
+| `user` command (`summary`, `list`, `set name`, `set password`, `enable`, `disable`, `priv`, `test`) | done |
 | Bridging (`-t`/`-T`/`-b`/`-B`) | not yet |
 | Other interfaces (`lan`, `open`, serial, ...) | not yet |
 
@@ -55,6 +56,9 @@ ipmitool -I lanplus -H <bmc> -U <user> -P <pass> sol info
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru print
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru print 0
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru read 0 /tmp/fru.bin
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> user list
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> user summary
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> user set password 2 s3cret
 ```
 
 Supported options include `-I`, `-H`, `-p`, `-U`, `-P`/`-f`/`-E`/`-a`,
@@ -69,8 +73,8 @@ cargo test
 
 Unit tests cover checksum computation, the cipher-suite table, request
 checksums, response parsing, AES confidentiality round-trips, RAKP message
-layout, the IANA PEN registry parser, SOL packet handling and FRU area string
-decoding.
+layout, the IANA PEN registry parser, SOL packet handling, FRU area string
+decoding and user-command argument validation.
 
 ## Notes / known gaps
 
@@ -93,6 +97,10 @@ decoding.
   decoded (the record is reported and skipped).
 - The FRU reader uses the same per-request read size as the C lanplus
   transport (`IPMI_LAN_MAX_RESPONSE_SIZE - 2`); word-access FRUs are handled.
+- `user set password` and `user test` prompt for a password (when one is not
+  supplied) by reading from stdin with echo enabled, sharing the `-a`
+  limitation above.
+- `-c` (comma-separated output) is honoured by `user list` and `user summary`.
 - Manufacturer names are read at runtime from the IANA PEN registry
   (`enterprise-numbers`, or `enterprise-numbers.txt` as shipped by
   `iana-etc`), searched in `$HOME/.local/usr/share/misc`, `/usr/share/misc`

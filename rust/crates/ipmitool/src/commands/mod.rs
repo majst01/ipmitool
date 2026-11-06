@@ -5,3 +5,4 @@ pub mod fru;
 pub mod mc;
 pub mod raw;
 pub mod sol;
+pub mod user;

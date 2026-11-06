@@ -88,7 +88,7 @@ fn name_of(vals: &[ValStr], val: u8) -> String {
             return v.name.to_string();
         }
     }
-    format!("Unknown (0x{val:02x})")
+    format!("Unknown (0x{val:02X})")
 }
 
 /// Parse a privilege level name (case-insensitive). Returns `None` if

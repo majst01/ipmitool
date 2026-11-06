@@ -3,6 +3,7 @@
 
 mod args;
 mod commands;
+mod csv;
 mod verbose;
 
 use std::process::ExitCode;
@@ -39,8 +40,9 @@ fn run(argv: &[String]) -> Result<i32, String> {
         args::Parsed::Run(opts, command, cmd_args) => (opts, command, cmd_args),
     };
 
-    // Mirror the C global `verbose` before any command runs.
+    // Mirror the C globals `verbose` and `csv_output` before any command runs.
     verbose::set(opts.verbose);
+    csv::set(opts.csv);
 
     // Determine the interface: default to lanplus when a hostname is supplied,
     // otherwise refuse (we have no local/BMC-direct transport yet).
@@ -109,6 +111,7 @@ fn dispatch(intf: &mut dyn Interface, command: &str, args: &[String]) -> i32 {
         "mc" | "bmc" => commands::mc::main(intf, args),
         "sol" => commands::sol::main(intf, args),
         "fru" => commands::fru::main(intf, args),
+        "user" => commands::user::main(intf, args),
         other => {
             eprintln!("Invalid command: {other}");
             -1
@@ -143,4 +146,5 @@ fn print_usage() {
     println!("  mc          Management Controller status and global enables");
     println!("  sol         Configure and connect to the Serial-over-LAN interface");
     println!("  fru         Print Field Replaceable Unit (FRU) inventory information");
+    println!("  user        Manage IPMI user accounts and channel access");
 }
