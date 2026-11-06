@@ -1,0 +1,19 @@
+[package]
+name = "ipmi-lanplus"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "IPMI v2.0 / RMCP+ LAN transport with RAKP authentication and AES-CBC confidentiality"
+
+[dependencies]
+ipmi-core.workspace = true
+aes = "0.8"
+cbc = "0.1"
+cipher = "0.4"
+hmac = "0.12"
+sha1 = "0.10"
+md-5 = "0.10"
+sha2 = "0.10"
+rand = "0.8"
+log = "0.4"

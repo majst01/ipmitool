@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ipmi-core",
+    "crates/ipmi-lanplus",
+    "crates/ipmitool",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+license = "BSD-3-Clause"
+repository = "https://codeberg.org/ipmitool/ipmitool"
+authors = ["ipmitool contributors"]
+
+[workspace.dependencies]
+ipmi-core = { path = "crates/ipmi-core" }
+ipmi-lanplus = { path = "crates/ipmi-lanplus" }
+
+[profile.release]
+lto = true
+codegen-units = 1

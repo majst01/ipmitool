@@ -1,0 +1,15 @@
+[package]
+name = "ipmitool"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Drop-in compatible IPMI utility (Rust rewrite), lanplus interface"
+
+[[bin]]
+name = "ipmitool"
+path = "src/main.rs"
+
+[dependencies]
+ipmi-core.workspace = true
+ipmi-lanplus.workspace = true
