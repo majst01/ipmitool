@@ -240,9 +240,10 @@ func identify(intf ipmicore.Interface, args []string) int {
 	}
 
 	req := ipmicore.NewRequest(ipmicore.NetfnChassis, 0x4)
-	if length == 2 {
+	switch length {
+	case 2:
 		req.Data = []byte{interval, 1}
-	} else if length == 1 {
+	case 1:
 		req.Data = []byte{interval}
 	}
 

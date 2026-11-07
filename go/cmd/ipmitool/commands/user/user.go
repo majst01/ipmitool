@@ -294,7 +294,7 @@ func modUser(intf ipmicore.Interface, argv []string) int {
 	if !ok {
 		return -1
 	}
-	operation := passwordDisableUser
+	var operation uint8
 	if argv[0] == "disable" {
 		operation = passwordDisableUser
 	} else {

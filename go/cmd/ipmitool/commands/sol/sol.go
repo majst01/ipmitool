@@ -230,7 +230,7 @@ func payload(intf ipmicore.Interface, argv []string) int {
 	case "enable", "disable":
 		enable := argv[0] == "enable"
 		req := ipmicore.NewRequest(ipmicore.NetfnApp, ipmicore.IpmiSetUserPayloadAccess)
-		var access uint8 = (userid & 0x3f)
+		var access = (userid & 0x3f)
 		if !enable {
 			access |= 0x40
 		}

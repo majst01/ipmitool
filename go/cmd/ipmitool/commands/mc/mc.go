@@ -391,12 +391,13 @@ func guid(intf ipmicore.Interface, args []string) int {
 	}
 	if parsed.mode != guidDump {
 		fmt.Printf("GUID Version  : %s", parsed.versionName())
-		if parsed.version == 0 {
+		switch parsed.version {
+		case 0:
 			fmt.Printf(" (%d)\n", parsed.versionNibble())
-		} else if parsed.version == 1 {
+		case 1:
 			fmt.Println()
 			fmt.Printf("Timestamp     : %s\n", formatUnix(parsed.time))
-		} else {
+		default:
 			fmt.Println()
 		}
 	}
