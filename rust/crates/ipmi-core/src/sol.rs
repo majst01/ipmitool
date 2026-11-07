@@ -129,9 +129,9 @@ impl SolActivateResponse {
             )));
         }
         Ok(Self {
-            inbound_payload_size: u16::from_le_bytes([data[6], data[7]]),
-            outbound_payload_size: u16::from_le_bytes([data[8], data[9]]),
-            port: u16::from_le_bytes([data[10], data[11]]),
+            inbound_payload_size: u16::from_le_bytes([data[4], data[5]]),
+            outbound_payload_size: u16::from_le_bytes([data[6], data[7]]),
+            port: u16::from_le_bytes([data[8], data[9]]),
         })
     }
 }
@@ -309,13 +309,17 @@ mod tests {
 
     #[test]
     fn activate_response_parses_sizes_and_port() {
+        // Layout after the completion code: aux[0..4], inbound[4..6],
+        // outbound[6..8], port[8..10], vlan[10..12] (spec Table 24-2).
         let mut data = [0u8; 12];
-        data[6] = 0x56;
-        data[7] = 0x02;
-        data[8] = 0x10;
-        data[9] = 0x00;
-        data[10] = 0x6f;
-        data[11] = 0x02;
+        data[4] = 0x56;
+        data[5] = 0x02;
+        data[6] = 0x10;
+        data[7] = 0x00;
+        data[8] = 0x6f;
+        data[9] = 0x02;
+        data[10] = 0xff;
+        data[11] = 0xff;
         let rsp = SolActivateResponse::parse(&data).unwrap();
         assert_eq!(rsp.inbound_payload_size, 0x0256);
         assert_eq!(rsp.outbound_payload_size, 0x0010);

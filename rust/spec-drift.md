@@ -24,7 +24,7 @@ The report separates two very different things:
 
 | # | Class | Severity     | Area                                                       | Location                                                      |
 |---|-------|--------------|------------------------------------------------------------|---------------------------------------------------------------|
-| 1 | A     | **Critical** | SOL Activate Payload response offsets off by +2            | `ipmi-core/src/sol.rs:124-136`                                |
+| 1 | A     | ~~Critical~~ **Fixed** | SOL Activate Payload response offsets off by +2     | `ipmi-core/src/sol.rs:124-136`                                |
 | 2 | A     | Medium       | RAKP 4 integrity-check length for HMAC-SHA256              | `ipmi-lanplus/src/session.rs:134-138`, `transport.rs:516-519` |
 | 3 | A     | Medium-low   | MD5-128 session integrity AuthCode                         | `ipmi-lanplus/src/crypto.rs:65-69`                            |
 | 4 | A     | Low          | Cipher-suite table missing IDs 18, 19                      | `ipmi-core/src/types.rs:67-108`                               |
@@ -37,16 +37,32 @@ The report separates two very different things:
 
 ## Class A — Spec drift (bugs)
 
-### 1. SOL `Activate Payload` response is parsed 2 bytes too far — **Critical**
+### 1. SOL `Activate Payload` response is parsed 2 bytes too far — **Critical** ✅ Fixed
 
 **Location:** `rust/crates/ipmi-core/src/sol.rs:124-136` (`SolActivateResponse::parse`),
 consumed by `rust/crates/ipmi-lanplus/src/transport.rs:679` (`do_sol_activate`).
+
+**Status (fixed):** the parser now reads the fields at the spec offsets in both
+ports — Rust `SolActivateResponse::parse` and Go `SolActivateResponse.Parse`:
+
+```rust
+inbound_payload_size:  u16::from_le_bytes([data[4], data[5]]),
+outbound_payload_size: u16::from_le_bytes([data[6], data[7]]),
+port:                  u16::from_le_bytes([data[8], data[9]]),
+```
+
+The unit tests in `sol.rs` and `go/internal/ipmicore/ipmicore_test.go` were
+updated to encode `inbound` at `data[4..6]`, `outbound` at `data[6..8]` and
+`port` at `data[8..10]` (with a `0xFFFF` VLAN at `data[10..12]`).
+
+The original (buggy) code was:
 
 ```rust
 inbound_payload_size:  u16::from_le_bytes([data[6], data[7]]),
 outbound_payload_size: u16::from_le_bytes([data[8], data[9]]),
 port:                  u16::from_le_bytes([data[10], data[11]]),
 ```
+
 
 **Spec:** §24.1, *Table 24-2, Activate Payload Command* (spec text lines
 19137-19185). The response data, with the completion code at byte 1, is:
@@ -69,15 +85,16 @@ port:                  u16::from_le_bytes([data[10], data[11]]),
 `memcpy`'d over `rsp->data` (`lib/ipmi_sol.c:1807`), where `rsp->data` is the
 data after the completion code (`lanplus.c:781-792`).
 
-**Effect:** the Rust reads `outbound` as `inbound`, `port` as `outbound`, and
-`vlan` as `port`. Since a non-VLAN BMC returns `0xFFFF` for the VLAN field,
-`do_sol_activate` sees `resp.port == 0xFFFF != params.port` and aborts with
-`"BMC requests SOL session on different port"` (`transport.rs:683-690`). SOL
-activation therefore fails against any conformant BMC.
+**Effect (before fix):** the Rust read `outbound` as `inbound`, `port` as
+`outbound`, and `vlan` as `port`. Since a non-VLAN BMC returns `0xFFFF` for the
+VLAN field, `do_sol_activate` saw `resp.port == 0xFFFF != params.port` and
+aborted with `"BMC requests SOL session on different port"`
+(`transport.rs:683-690`). SOL activation therefore failed against any
+conformant BMC.
 
 **Test note:** the unit test `activate_response_parses_sizes_and_port`
-(`sol.rs:310-323`) encodes the wrong offsets and passes. It should be corrected
-along with the parser (e.g. `inbound` at `data[4..6]`, `port` at `data[8..10]`).
+(`sol.rs:310-323`) had encoded the wrong offsets and passed; it now encodes the
+corrected `inbound` (`data[4..6]`) and `port` (`data[8..10]`) positions.
 
 ### 2. RAKP 4 integrity-check length wrong for HMAC-SHA256
 
