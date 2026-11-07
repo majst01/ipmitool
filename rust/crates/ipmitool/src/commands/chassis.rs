@@ -28,7 +28,7 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         "restart_cause" => restart_cause(intf),
         "policy" => policy(intf, rest),
         other => {
-            eprintln!("Invalid chassis command: {other}");
+            errln!("Invalid chassis command: {other}");
             -1
         }
     }
@@ -41,11 +41,11 @@ pub fn power_shortcut(intf: &mut dyn Interface, args: &[String]) -> i32 {
 
 fn power(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let Some(cmd) = args.first().map(String::as_str) else {
-        eprintln!("chassis power Commands: status, on, off, cycle, reset, diag, soft");
+        errln!("chassis power Commands: status, on, off, cycle, reset, diag, soft");
         return 0;
     };
     if cmd == "help" {
-        eprintln!("chassis power Commands: status, on, off, cycle, reset, diag, soft");
+        errln!("chassis power Commands: status, on, off, cycle, reset, diag, soft");
         return 0;
     }
     if cmd == "status" {
@@ -59,7 +59,7 @@ fn power(intf: &mut dyn Interface, args: &[String]) -> i32 {
         "diag" => consts::CHASSIS_CTL_PULSE_DIAG,
         "acpi" | "soft" => consts::CHASSIS_CTL_ACPI_SOFT,
         other => {
-            eprintln!("Invalid chassis power command: {other}");
+            errln!("Invalid chassis power command: {other}");
             return -1;
         }
     };
@@ -69,11 +69,11 @@ fn power(intf: &mut dyn Interface, args: &[String]) -> i32 {
 fn power_status(intf: &mut dyn Interface) -> Result<u8, i32> {
     let req = Request::new(consts::NETFN_CHASSIS, 0x1);
     let rsp = intf.sendrecv(&req).map_err(|_| {
-        eprintln!("Unable to get Chassis Power Status");
+        errln!("Unable to get Chassis Power Status");
         -1
     })?;
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get Chassis Power Status failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -85,7 +85,7 @@ fn power_status(intf: &mut dyn Interface) -> Result<u8, i32> {
 fn print_power_status(intf: &mut dyn Interface) -> i32 {
     match power_status(intf) {
         Ok(ps) => {
-            println!("Chassis Power is {}", if ps != 0 { "on" } else { "off" });
+            outln!("Chassis Power is {}", if ps != 0 { "on" } else { "off" });
             0
         }
         Err(code) => code,
@@ -98,7 +98,7 @@ fn power_control(intf: &mut dyn Interface, ctl: u8) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!(
+            errln!(
                 "Unable to set Chassis Power Control to {}",
                 values::power_control_str(ctl)
             );
@@ -106,14 +106,14 @@ fn power_control(intf: &mut dyn Interface, ctl: u8) -> i32 {
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Set Chassis Power Control to {} failed: {}",
             values::power_control_str(ctl),
             cc::completion_code_str(rsp.ccode)
         );
         return -1;
     }
-    println!("Chassis Power Control: {}", values::power_control_str(ctl));
+    outln!("Chassis Power Control: {}", values::power_control_str(ctl));
     0
 }
 
@@ -122,12 +122,12 @@ fn status(intf: &mut dyn Interface) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Error sending Chassis Status command");
+            errln!("Error sending Chassis Status command");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Error sending Chassis Status command: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -135,19 +135,19 @@ fn status(intf: &mut dyn Interface) -> i32 {
     }
     let d = &rsp.data;
     if d.len() < 3 {
-        eprintln!("Error sending Chassis Status command: short response");
+        errln!("Error sending Chassis Status command: short response");
         return -1;
     }
 
-    println!(
+    outln!(
         "System Power         : {}",
         if d[0] & 0x1 != 0 { "on" } else { "off" }
     );
-    println!(
+    outln!(
         "Power Overload       : {}",
         if d[0] & 0x2 != 0 { "true" } else { "false" }
     );
-    println!(
+    outln!(
         "Power Interlock      : {}",
         if d[0] & 0x4 != 0 {
             "active"
@@ -155,41 +155,41 @@ fn status(intf: &mut dyn Interface) -> i32 {
             "inactive"
         }
     );
-    println!(
+    outln!(
         "Main Power Fault     : {}",
         if d[0] & 0x8 != 0 { "true" } else { "false" }
     );
-    println!(
+    outln!(
         "Power Control Fault  : {}",
         if d[0] & 0x10 != 0 { "true" } else { "false" }
     );
-    print!("Power Restore Policy : ");
+    out!("Power Restore Policy : ");
     match (d[0] & 0x60) >> 5 {
-        0x0 => println!("always-off"),
-        0x1 => println!("previous"),
-        0x2 => println!("always-on"),
-        _ => println!("unknown"),
+        0x0 => outln!("always-off"),
+        0x1 => outln!("previous"),
+        0x2 => outln!("always-on"),
+        _ => outln!("unknown"),
     }
 
-    print!("Last Power Event     : ");
+    out!("Last Power Event     : ");
     if d[1] & 0x1 != 0 {
-        print!("ac-failed ");
+        out!("ac-failed ");
     }
     if d[1] & 0x2 != 0 {
-        print!("overload ");
+        out!("overload ");
     }
     if d[1] & 0x4 != 0 {
-        print!("interlock ");
+        out!("interlock ");
     }
     if d[1] & 0x8 != 0 {
-        print!("fault ");
+        out!("fault ");
     }
     if d[1] & 0x10 != 0 {
-        print!("command");
+        out!("command");
     }
-    println!();
+    outln!();
 
-    println!(
+    outln!(
         "Chassis Intrusion    : {}",
         if d[2] & 0x1 != 0 {
             "active"
@@ -197,7 +197,7 @@ fn status(intf: &mut dyn Interface) -> i32 {
             "inactive"
         }
     );
-    println!(
+    outln!(
         "Front-Panel Lockout  : {}",
         if d[2] & 0x2 != 0 {
             "active"
@@ -205,20 +205,20 @@ fn status(intf: &mut dyn Interface) -> i32 {
             "inactive"
         }
     );
-    println!(
+    outln!(
         "Drive Fault          : {}",
         if d[2] & 0x4 != 0 { "true" } else { "false" }
     );
-    println!(
+    outln!(
         "Cooling/Fan Fault    : {}",
         if d[2] & 0x8 != 0 { "true" } else { "false" }
     );
 
     if d.len() > 3 {
         if d[3] == 0 {
-            println!("Front Panel Control  : none");
+            outln!("Front Panel Control  : none");
         } else {
-            println!(
+            outln!(
                 "Sleep Button Disable : {}",
                 if d[3] & 0x80 != 0 {
                     "allowed"
@@ -226,7 +226,7 @@ fn status(intf: &mut dyn Interface) -> i32 {
                     "not allowed"
                 }
             );
-            println!(
+            outln!(
                 "Diag Button Disable  : {}",
                 if d[3] & 0x40 != 0 {
                     "allowed"
@@ -234,7 +234,7 @@ fn status(intf: &mut dyn Interface) -> i32 {
                     "not allowed"
                 }
             );
-            println!(
+            outln!(
                 "Reset Button Disable : {}",
                 if d[3] & 0x20 != 0 {
                     "allowed"
@@ -242,7 +242,7 @@ fn status(intf: &mut dyn Interface) -> i32 {
                     "not allowed"
                 }
             );
-            println!(
+            outln!(
                 "Power Button Disable : {}",
                 if d[3] & 0x10 != 0 {
                     "allowed"
@@ -250,19 +250,19 @@ fn status(intf: &mut dyn Interface) -> i32 {
                     "not allowed"
                 }
             );
-            println!(
+            outln!(
                 "Sleep Button Disabled: {}",
                 if d[3] & 0x08 != 0 { "true" } else { "false" }
             );
-            println!(
+            outln!(
                 "Diag Button Disabled : {}",
                 if d[3] & 0x04 != 0 { "true" } else { "false" }
             );
-            println!(
+            outln!(
                 "Reset Button Disabled: {}",
                 if d[3] & 0x02 != 0 { "true" } else { "false" }
             );
-            println!(
+            outln!(
                 "Power Button Disabled: {}",
                 if d[3] & 0x01 != 0 { "true" } else { "false" }
             );
@@ -279,10 +279,10 @@ fn identify(intf: &mut dyn Interface, args: &[String]) -> i32 {
     match args.first().map(String::as_str) {
         None => {}
         Some("help") => {
-            eprintln!("chassis identify <interval>");
-            eprintln!("                 default is 15 seconds");
-            eprintln!("                 0 to turn off");
-            eprintln!("                 force to turn on indefinitely");
+            errln!("chassis identify <interval>");
+            errln!("                 default is 15 seconds");
+            errln!("                 0 to turn off");
+            errln!("                 force to turn on indefinitely");
             return 0;
         }
         Some("force") => {
@@ -295,7 +295,7 @@ fn identify(intf: &mut dyn Interface, args: &[String]) -> i32 {
                 len = 1;
             }
             None => {
-                eprintln!("Invalid interval given.");
+                errln!("Invalid interval given.");
                 return -1;
             }
         },
@@ -311,30 +311,30 @@ fn identify(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Unable to set Chassis Identify");
+            errln!("Unable to set Chassis Identify");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Set Chassis Identify failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
         if force_on {
-            eprintln!("Chassis may not support Force Identify On");
+            errln!("Chassis may not support Force Identify On");
         }
         return -1;
     }
 
-    print!("Chassis identify interval: ");
+    out!("Chassis identify interval: ");
     if args.is_empty() {
-        println!("default (15 seconds)");
+        outln!("default (15 seconds)");
     } else if force_on {
-        println!("indefinite");
+        outln!("indefinite");
     } else if interval == 0 {
-        println!("off");
+        outln!("off");
     } else {
-        println!("{interval} seconds");
+        outln!("{interval} seconds");
     }
     0
 }
@@ -344,19 +344,19 @@ fn poh(intf: &mut dyn Interface) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Unable to get Chassis Power-On-Hours");
+            errln!("Unable to get Chassis Power-On-Hours");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get Chassis Power-On-Hours failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
         return -1;
     }
     if rsp.data.len() < 5 {
-        eprintln!("Get Chassis Power-On-Hours failed: short response");
+        errln!("Get Chassis Power-On-Hours failed: short response");
         return -1;
     }
     let mins_per_count = rsp.data[0];
@@ -368,12 +368,12 @@ fn poh(intf: &mut dyn Interface) -> i32 {
     let minutes = rem - hours as f64 * 60.0;
 
     if mins_per_count < 60 {
-        println!(
+        outln!(
             "POH Counter  : {days} days, {hours} hours, {} minutes",
             minutes as u32
         );
     } else {
-        println!("POH Counter  : {days} days, {hours} hours");
+        outln!("POH Counter  : {days} days, {hours} hours");
     }
     0
 }
@@ -383,19 +383,19 @@ fn restart_cause(intf: &mut dyn Interface) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Unable to get Chassis Restart Cause");
+            errln!("Unable to get Chassis Restart Cause");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get Chassis Restart Cause failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
         return -1;
     }
     let cause = rsp.data.first().copied().unwrap_or(0) & 0xf;
-    println!(
+    outln!(
         "System restart cause: {}",
         values::chassis_restart_cause_str(cause)
     );
@@ -417,7 +417,7 @@ fn policy(intf: &mut dyn Interface, args: &[String]) -> i32 {
         "previous" => consts::CHASSIS_POLICY_PREVIOUS,
         "always-off" => consts::CHASSIS_POLICY_ALWAYS_OFF,
         other => {
-            eprintln!("Invalid chassis policy: {other}");
+            errln!("Invalid chassis policy: {other}");
             return -1;
         }
     };
@@ -427,12 +427,12 @@ fn policy(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Error in Power Restore Policy command");
+            errln!("Error in Power Restore Policy command");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Power Restore Policy command failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -441,24 +441,24 @@ fn policy(intf: &mut dyn Interface, args: &[String]) -> i32 {
 
     if ctl == consts::CHASSIS_POLICY_NO_CHANGE {
         let bits = rsp.data.first().copied().unwrap_or(0);
-        print!("Supported chassis power policy:  ");
+        out!("Supported chassis power policy:  ");
         if bits & (1 << consts::CHASSIS_POLICY_ALWAYS_OFF) != 0 {
-            print!("always-off ");
+            out!("always-off ");
         }
         if bits & (1 << consts::CHASSIS_POLICY_ALWAYS_ON) != 0 {
-            print!("always-on ");
+            out!("always-on ");
         }
         if bits & (1 << consts::CHASSIS_POLICY_PREVIOUS) != 0 {
-            print!("previous");
+            out!("previous");
         }
-        println!();
+        outln!();
     } else {
-        print!("Set chassis power restore policy to ");
+        out!("Set chassis power restore policy to ");
         match ctl {
-            consts::CHASSIS_POLICY_ALWAYS_ON => println!("always-on"),
-            consts::CHASSIS_POLICY_ALWAYS_OFF => println!("always-off"),
-            consts::CHASSIS_POLICY_PREVIOUS => println!("previous"),
-            _ => println!("unknown"),
+            consts::CHASSIS_POLICY_ALWAYS_ON => outln!("always-on"),
+            consts::CHASSIS_POLICY_ALWAYS_OFF => outln!("always-off"),
+            consts::CHASSIS_POLICY_PREVIOUS => outln!("previous"),
+            _ => outln!("unknown"),
         }
     }
     0
@@ -469,12 +469,12 @@ fn selftest(intf: &mut dyn Interface) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Error sending Get Self Test command");
+            errln!("Error sending Get Self Test command");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Error sending Get Self Test command: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -482,12 +482,12 @@ fn selftest(intf: &mut dyn Interface) -> i32 {
     }
     let code = rsp.data.first().copied().unwrap_or(0);
     let test = rsp.data.get(1).copied().unwrap_or(0);
-    print!("Self Test Results    : ");
+    out!("Self Test Results    : ");
     match code {
-        0x55 => println!("passed"),
-        0x56 => println!("not implemented"),
+        0x55 => outln!("passed"),
+        0x56 => outln!("not implemented"),
         0x57 => {
-            println!("device error");
+            outln!("device error");
             const BROKEN: [&str; 8] = [
                 "firmware corrupted",
                 "boot block corrupted",
@@ -500,26 +500,26 @@ fn selftest(intf: &mut dyn Interface) -> i32 {
             ];
             for (i, name) in BROKEN.iter().enumerate() {
                 if test & (1 << i) != 0 {
-                    println!("                       [{name}]");
+                    outln!("                       [{name}]");
                 }
             }
         }
-        0x58 => println!("Fatal hardware error: {test:02x}h"),
-        _ => println!("Device-specific failure {code:02x}h:{test:02x}h"),
+        0x58 => outln!("Fatal hardware error: {test:02x}h"),
+        _ => outln!("Device-specific failure {code:02x}h:{test:02x}h"),
     }
     0
 }
 
 fn print_policy_help() {
-    eprintln!("chassis policy <state>");
-    eprintln!("   list        : return supported policies");
-    eprintln!("   always-on   : turn on when power is restored");
-    eprintln!("   previous    : return to previous state when power is restored");
-    eprintln!("   always-off  : stay off after power is restored");
+    errln!("chassis policy <state>");
+    errln!("   list        : return supported policies");
+    errln!("   always-on   : turn on when power is restored");
+    errln!("   previous    : return to previous state when power is restored");
+    errln!("   always-off  : stay off after power is restored");
 }
 
 fn print_usage() {
-    eprintln!(
+    errln!(
         "Chassis Commands:\n  status, power, policy, restart_cause\n  poh, identify, selftest,\n  bootdev, bootparam, bootmbox"
     );
 }

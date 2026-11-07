@@ -66,7 +66,7 @@ struct UserAccess {
 
 pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let Some(cmd) = args.first().map(String::as_str) else {
-        eprintln!("Not enough parameters given.");
+        errln!("Not enough parameters given.");
         print_usage();
         return -1;
     };
@@ -92,7 +92,7 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         "priv" => priv_cmd(intf, args),
         "disable" | "enable" => mod_user(intf, args),
         other => {
-            eprintln!("Invalid user command: '{other}'");
+            errln!("Invalid user command: '{other}'");
             print_usage();
             -1
         }
@@ -100,24 +100,24 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
 }
 
 fn print_usage() {
-    eprintln!("User Commands:");
-    eprintln!("               summary      [<channel number>]");
-    eprintln!("               list         [<channel number>]");
-    eprintln!("               set name     <user id> <username>");
-    eprintln!("               set password <user id> [<password> [<16|20>]]");
-    eprintln!("               disable      <user id>");
-    eprintln!("               enable       <user id>");
-    eprintln!("               priv         <user id> <privilege level> [<channel number>]");
-    eprintln!("                     Privilege levels:");
-    eprintln!("                      * 0x1 - Callback");
-    eprintln!("                      * 0x2 - User");
-    eprintln!("                      * 0x3 - Operator");
-    eprintln!("                      * 0x4 - Administrator");
-    eprintln!("                      * 0x5 - OEM Proprietary");
-    eprintln!("                      * 0xF - No Access");
-    eprintln!();
-    eprintln!("               test         <user id> <16|20> [<password>]");
-    eprintln!();
+    errln!("User Commands:");
+    errln!("               summary      [<channel number>]");
+    errln!("               list         [<channel number>]");
+    errln!("               set name     <user id> <username>");
+    errln!("               set password <user id> [<password> [<16|20>]]");
+    errln!("               disable      <user id>");
+    errln!("               enable       <user id>");
+    errln!("               priv         <user id> <privilege level> [<channel number>]");
+    errln!("                     Privilege levels:");
+    errln!("                      * 0x1 - Callback");
+    errln!("                      * 0x2 - User");
+    errln!("                      * 0x3 - Operator");
+    errln!("                      * 0x4 - Administrator");
+    errln!("                      * 0x5 - OEM Proprietary");
+    errln!("                      * 0xF - No Access");
+    errln!();
+    errln!("               test         <user id> <16|20> [<password>]");
+    errln!();
 }
 
 // ---------------------------------------------------------------------------
@@ -166,8 +166,8 @@ fn test(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let password_length = match parse_num(&args[2]) {
         Some(v) if v == USER_PW_IPMI15_LEN as u32 || v == USER_PW_IPMI20_LEN as u32 => v as usize,
         _ => {
-            eprintln!("Given password length '{}' is invalid.", args[2]);
-            eprintln!("Expected value is either 16 or 20.");
+            errln!("Given password length '{}' is invalid.", args[2]);
+            errln!("Expected value is either 16 or 20.");
             return -1;
         }
     };
@@ -196,7 +196,7 @@ fn password(intf: &mut dyn Interface, args: &[String]) -> i32 {
         let second = ask_password(user_id);
         let compare_len = second.len().min(USER_PW_MAX_LEN + 1);
         if !strncmp_eq(&first, &second, compare_len) {
-            eprintln!("Passwords do not match or are longer than {USER_PW_MAX_LEN}");
+            errln!("Passwords do not match or are longer than {USER_PW_MAX_LEN}");
             return -1;
         }
         first
@@ -212,7 +212,7 @@ fn password(intf: &mut dyn Interface, args: &[String]) -> i32 {
                 password_type = v as usize;
             }
             _ => {
-                eprintln!("Invalid password length '{}'", args[4]);
+                errln!("Invalid password length '{}'", args[4]);
                 return -1;
             }
         }
@@ -221,7 +221,7 @@ fn password(intf: &mut dyn Interface, args: &[String]) -> i32 {
     }
 
     if password_len > password_type {
-        eprintln!("Password is too long (> {password_type} bytes)");
+        errln!("Password is too long (> {password_type} bytes)");
         return -1;
     }
 
@@ -233,10 +233,10 @@ fn password(intf: &mut dyn Interface, args: &[String]) -> i32 {
         password_type > USER_PW_IPMI15_LEN,
     );
     if eval_ccode(ccode) != 0 {
-        eprintln!("Set User Password command failed (user {user_id})");
+        errln!("Set User Password command failed (user {user_id})");
         -1
     } else {
-        println!("Set User Password command successful (user {user_id})");
+        outln!("Set User Password command successful (user {user_id})");
         0
     }
 }
@@ -270,10 +270,10 @@ fn priv_cmd(intf: &mut dyn Interface, args: &[String]) -> i32 {
 
     let ccode = set_user_access(intf, &ua, true);
     if eval_ccode(ccode) != 0 {
-        eprintln!("Set Privilege Level command failed (user {user_id})");
+        errln!("Set Privilege Level command failed (user {user_id})");
         -1
     } else {
-        println!("Set Privilege Level command successful (user {user_id})");
+        outln!("Set Privilege Level command successful (user {user_id})");
         0
     }
 }
@@ -295,7 +295,7 @@ fn mod_user(intf: &mut dyn Interface, args: &[String]) -> i32 {
 
     let ccode = set_user_password(intf, user_id, operation, None, false);
     if eval_ccode(ccode) != 0 {
-        eprintln!("Set User Password command failed (user {user_id})");
+        errln!("Set User Password command failed (user {user_id})");
         -1
     } else {
         0
@@ -312,7 +312,7 @@ fn name(intf: &mut dyn Interface, args: &[String]) -> i32 {
         return -1;
     };
     if args[3].len() > 16 {
-        eprintln!("Username is too long (> 16 bytes)");
+        errln!("Username is too long (> 16 bytes)");
         return -1;
     }
     set_username(intf, user_id, &args[3])
@@ -426,12 +426,12 @@ fn set_username(intf: &mut dyn Interface, user_id: u8, name: &str) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Set User Name command failed (user {user_id}, name {name})");
+            errln!("Set User Name command failed (user {user_id}, name {name})");
             return -1;
         }
     };
     if rsp.ccode != 0 {
-        eprintln!(
+        errln!(
             "Set User Name command failed (user {user_id}, name {name}): {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -454,10 +454,10 @@ fn test_password(
         is_twenty_byte_password,
     );
     match ret {
-        0 => println!("Success"),
-        0x80 => println!("Failure: password incorrect"),
-        0x81 => println!("Failure: wrong password size"),
-        _ => println!("Unknown error"),
+        0 => outln!("Success"),
+        0x80 => outln!("Failure: password incorrect"),
+        0x81 => outln!("Failure: wrong password size"),
+        _ => outln!("Unknown error"),
     }
     if ret == 0 {
         0
@@ -480,14 +480,14 @@ fn print_summary(intf: &mut dyn Interface, channel: u8) -> i32 {
         return -1;
     }
     if csv::enabled() {
-        println!(
+        outln!(
             "{},{},{}",
             ua.max_user_ids, ua.enabled_user_ids, ua.fixed_user_ids
         );
     } else {
-        println!("Maximum IDs\t    : {}", ua.max_user_ids);
-        println!("Enabled User Count  : {}", ua.enabled_user_ids);
-        println!("Fixed Name Count    : {}", ua.fixed_user_ids);
+        outln!("Maximum IDs\t    : {}", ua.max_user_ids);
+        outln!("Enabled User Count  : {}", ua.enabled_user_ids);
+        outln!("Fixed Name Count    : {}", ua.fixed_user_ids);
     }
     0
 }
@@ -533,10 +533,10 @@ fn print_list(intf: &mut dyn Interface, channel: u8) -> i32 {
 
 fn dump_user_access(name: &str, ua: &UserAccess, printed_header: &mut bool) {
     if !*printed_header {
-        println!("ID  Name\t     Callin  Link Auth\tIPMI Msg   Channel Priv Limit");
+        outln!("ID  Name\t     Callin  Link Auth\tIPMI Msg   Channel Priv Limit");
         *printed_header = true;
     }
-    println!(
+    outln!(
         "{:<4}{:<17}{:<8}{:<11}{:<11}{}",
         ua.user_id,
         name,
@@ -548,7 +548,7 @@ fn dump_user_access(name: &str, ua: &UserAccess, printed_header: &mut bool) {
 }
 
 fn dump_user_access_csv(name: &str, ua: &UserAccess) {
-    println!(
+    outln!(
         "{},{},{},{},{},{}",
         ua.user_id,
         name,
@@ -571,15 +571,15 @@ fn eval_ccode(ccode: i32) -> i32 {
     }
     if ccode < 0 {
         match ccode {
-            -1 => eprintln!("IPMI response is NULL."),
-            -2 => eprintln!("Unexpected data length received."),
-            -3 => eprintln!("Invalid function parameter."),
-            -4 => eprintln!("ipmitool: malloc failure."),
+            -1 => errln!("IPMI response is NULL."),
+            -2 => errln!("Unexpected data length received."),
+            -3 => errln!("Invalid function parameter."),
+            -4 => errln!("ipmitool: malloc failure."),
             _ => {}
         }
         -1
     } else {
-        eprintln!(
+        errln!(
             "IPMI command failed: {}",
             cc::completion_code_str(ccode as u8)
         );
@@ -591,8 +591,8 @@ fn is_channel_num(s: &str) -> Option<u8> {
     match crate::args::parse_u8(s) {
         Some(c) if c <= 0xB || (0xE..=0xF).contains(&c) => Some(c),
         _ => {
-            eprintln!("Given Channel number '{s}' is either invalid or out of range.");
-            eprintln!("Channel number must be from ranges: <0x0..0xB>, <0xE..0xF>");
+            errln!("Given Channel number '{s}' is either invalid or out of range.");
+            errln!("Channel number must be from ranges: <0x0..0xB>, <0xE..0xF>");
             None
         }
     }
@@ -602,8 +602,8 @@ fn is_user_id(s: &str) -> Option<u8> {
     match crate::args::parse_u8(s) {
         Some(id) if (UID_MIN..=UID_MAX).contains(&id) => Some(id),
         _ => {
-            eprintln!("Given User ID '{s}' is either invalid or out of range.");
-            eprintln!("User ID is limited to range <{UID_MIN}..{UID_MAX}>.");
+            errln!("Given User ID '{s}' is either invalid or out of range.");
+            errln!("User ID is limited to range <{UID_MIN}..{UID_MAX}>.");
             None
         }
     }
@@ -613,8 +613,8 @@ fn is_priv_limit(s: &str) -> Option<u8> {
     match crate::args::parse_u8(s) {
         Some(p) if (0x01..=0x05).contains(&p) || p == 0x0F => Some(p),
         _ => {
-            eprintln!("Given Privilege Limit '{s}' is invalid.");
-            eprintln!("Privilege Limit is limited to <0x1..0x5> and <0xF>.");
+            errln!("Given Privilege Limit '{s}' is invalid.");
+            errln!("Privilege Limit is limited to <0x1..0x5> and <0xF>.");
             None
         }
     }
@@ -623,7 +623,7 @@ fn is_priv_limit(s: &str) -> Option<u8> {
 /// `ipmi_user_build_password_prompt()` + `ask_password()`. Echo is not
 /// disabled, matching the existing `-a` limitation.
 fn ask_password(user_id: u8) -> String {
-    eprint!("Password for user {user_id}: ");
+    err!("Password for user {user_id}: ");
     let _ = std::io::stderr().flush();
     let mut line = String::new();
     let _ = std::io::stdin().read_line(&mut line);

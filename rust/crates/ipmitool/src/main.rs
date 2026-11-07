@@ -1,10 +1,17 @@
 //! Rust rewrite of the ipmitool CLI, currently supporting the `lanplus`
 //! interface and the `raw`, `chassis`, `power` and `mc` commands.
 
+#[macro_use]
+mod output;
 mod args;
 mod commands;
 mod csv;
 mod verbose;
+
+#[cfg(test)]
+mod mock_tests;
+#[cfg(test)]
+mod testutil;
 
 use std::process::ExitCode;
 
@@ -20,7 +27,7 @@ fn main() -> ExitCode {
     match run(&argv) {
         Ok(code) => ExitCode::from(code as u8),
         Err(msg) => {
-            eprintln!("{msg}");
+            errln!("{msg}");
             ExitCode::FAILURE
         }
     }
@@ -34,7 +41,7 @@ fn run(argv: &[String]) -> Result<i32, String> {
             return Ok(0);
         }
         args::Parsed::Version => {
-            println!("ipmitool version {VERSION}");
+            outln!("ipmitool version {VERSION}");
             return Ok(0);
         }
         args::Parsed::Run(opts, command, cmd_args) => (opts, command, cmd_args),
@@ -113,38 +120,38 @@ fn dispatch(intf: &mut dyn Interface, command: &str, args: &[String]) -> i32 {
         "fru" => commands::fru::main(intf, args),
         "user" => commands::user::main(intf, args),
         other => {
-            eprintln!("Invalid command: {other}");
+            errln!("Invalid command: {other}");
             -1
         }
     }
 }
 
 fn print_usage() {
-    println!("ipmitool version {VERSION}");
-    println!("usage: ipmitool [options...] <command>");
-    println!("       -h             This help");
-    println!("       -V             Show version information");
-    println!("       -v             Verbose (can use multiple times)");
-    println!("       -c             Display output in comma separated format");
-    println!("       -I intf        Interface to use (only lanplus is supported)");
-    println!("       -H hostname    Remote host name for LAN interface");
-    println!("       -p port        Remote RMCP port [default=623]");
-    println!("       -U username    Remote session username");
-    println!("       -P password    Remote session password");
-    println!("       -C ciphersuite Cipher suite to be used by lanplus interface");
-    println!("       -L level       Remote session privilege level [default=ADMINISTRATOR]");
-    println!("       -m address     Set local IPMB address");
-    println!("       -b channel     Set destination channel for bridged request");
-    println!("       -l lun         Set destination lun for raw commands");
-    println!("       -N seconds     Specify timeout for lanplus interface [default=1]");
-    println!("       -R retry       Set the number of retries [default=4]");
-    println!();
-    println!("Commands:");
-    println!("  raw         Send a RAW IPMI request and print response");
-    println!("  chassis     Get chassis status and set power state");
-    println!("  power       Shortcut to chassis power commands");
-    println!("  mc          Management Controller status and global enables");
-    println!("  sol         Configure and connect to the Serial-over-LAN interface");
-    println!("  fru         Print Field Replaceable Unit (FRU) inventory information");
-    println!("  user        Manage IPMI user accounts and channel access");
+    outln!("ipmitool version {VERSION}");
+    outln!("usage: ipmitool [options...] <command>");
+    outln!("       -h             This help");
+    outln!("       -V             Show version information");
+    outln!("       -v             Verbose (can use multiple times)");
+    outln!("       -c             Display output in comma separated format");
+    outln!("       -I intf        Interface to use (only lanplus is supported)");
+    outln!("       -H hostname    Remote host name for LAN interface");
+    outln!("       -p port        Remote RMCP port [default=623]");
+    outln!("       -U username    Remote session username");
+    outln!("       -P password    Remote session password");
+    outln!("       -C ciphersuite Cipher suite to be used by lanplus interface");
+    outln!("       -L level       Remote session privilege level [default=ADMINISTRATOR]");
+    outln!("       -m address     Set local IPMB address");
+    outln!("       -b channel     Set destination channel for bridged request");
+    outln!("       -l lun         Set destination lun for raw commands");
+    outln!("       -N seconds     Specify timeout for lanplus interface [default=1]");
+    outln!("       -R retry       Set the number of retries [default=4]");
+    outln!();
+    outln!("Commands:");
+    outln!("  raw         Send a RAW IPMI request and print response");
+    outln!("  chassis     Get chassis status and set power state");
+    outln!("  power       Shortcut to chassis power commands");
+    outln!("  mc          Management Controller status and global enables");
+    outln!("  sol         Configure and connect to the Serial-over-LAN interface");
+    outln!("  fru         Print Field Replaceable Unit (FRU) inventory information");
+    outln!("  user        Manage IPMI user accounts and channel access");
 }

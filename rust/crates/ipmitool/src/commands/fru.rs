@@ -105,7 +105,7 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         "print" | "list" => {
             if args.len() > 1 {
                 if args[1] == "help" {
-                    eprintln!("fru print [fru id] - print information about FRU(s)");
+                    errln!("fru print [fru id] - print information about FRU(s)");
                     return 0;
                 }
                 match is_fru_id(&args[1]) {
@@ -118,11 +118,11 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         }
         "read" => read(intf, &args[1..]),
         "write" | "edit" | "get" | "internaluse" | "upgEkey" => {
-            eprintln!("fru {cmd}: not implemented in this build");
+            errln!("fru {cmd}: not implemented in this build");
             -1
         }
         other => {
-            eprintln!("Invalid FRU command: {other}");
+            errln!("Invalid FRU command: {other}");
             print_help();
             -1
         }
@@ -134,14 +134,14 @@ fn is_fru_id(s: &str) -> Option<u8> {
     match crate::args::parse_u8(s) {
         Some(id) => Some(id),
         None => {
-            eprintln!("FRU ID '{s}' is either invalid or out of range.");
+            errln!("FRU ID '{s}' is either invalid or out of range.");
             None
         }
     }
 }
 
 fn print_help() {
-    eprintln!("FRU Commands:  print read write upgEkey edit internaluse get");
+    errln!("FRU Commands:  print read write upgEkey edit internaluse get");
 }
 
 // ---------------------------------------------------------------------------
@@ -150,14 +150,14 @@ fn print_help() {
 
 fn read(intf: &mut dyn Interface, args: &[String]) -> i32 {
     if args.first().map(String::as_str) == Some("help") {
-        eprintln!("fru read <fru id> <fru file>");
-        eprintln!("Note: FRU ID and file(incl. full path) must be specified.");
-        eprintln!("Example: ipmitool fru read 0 /root/fru.bin");
+        errln!("fru read <fru id> <fru file>");
+        errln!("Note: FRU ID and file(incl. full path) must be specified.");
+        errln!("Example: ipmitool fru read 0 /root/fru.bin");
         return 0;
     }
     if args.len() < 2 {
-        eprintln!("Not enough parameters given.");
-        eprintln!("fru read <fru id> <fru file>");
+        errln!("Not enough parameters given.");
+        errln!("fru read <fru id> <fru file>");
         return -1;
     }
     let Some(fru_id) = is_fru_id(&args[0]) else {
@@ -168,8 +168,8 @@ fn read(intf: &mut dyn Interface, args: &[String]) -> i32 {
         return -1;
     }
     if verbose::level() > 0 {
-        println!("FRU ID           : {fru_id}");
-        println!("FRU File         : {file}");
+        outln!("FRU ID           : {fru_id}");
+        outln!("FRU File         : {file}");
     }
     read_to_bin(intf, file, fru_id);
 
@@ -178,11 +178,11 @@ fn read(intf: &mut dyn Interface, args: &[String]) -> i32 {
 
 fn is_valid_filename(name: &str) -> i32 {
     if name.is_empty() {
-        eprintln!("File/path is invalid.");
+        errln!("File/path is invalid.");
         return -2;
     }
     if name.len() >= 512 {
-        eprintln!("File/path must be shorter than 512 bytes.");
+        errln!("File/path must be shorter than 512 bytes.");
         return -3;
     }
     0
@@ -194,30 +194,30 @@ fn read_to_bin(intf: &mut dyn Interface, file_name: &str, fru_id: u8) {
         Err(FruInfoError::NoResponse) => return,
         Err(FruInfoError::Ccode(c)) => {
             if c == cc::CC_TIMEOUT {
-                println!("  Timeout accessing FRU info. (Device not present?)");
+                outln!("  Timeout accessing FRU info. (Device not present?)");
             }
             return;
         }
     };
 
     if verbose::level() > 0 {
-        println!("Fru Size   = {} bytes", fru.size);
-        println!("Fru Access = {:x}h", if fru.access { 1 } else { 0 });
+        outln!("Fru Size   = {} bytes", fru.size);
+        outln!("Fru Access = {:x}h", if fru.access { 1 } else { 0 });
     }
 
-    println!("Fru Size         : {} bytes", fru.size);
+    outln!("Fru Size         : {} bytes", fru.size);
     let size = fru.size;
     let data = read_fru_area(intf, &mut fru, fru_id, 0, size).unwrap_or_default();
 
     match File::create(file_name) {
         Ok(mut f) => {
             if let Err(e) = f.write_all(&data) {
-                eprintln!("Error writing file {file_name}: {e}");
+                errln!("Error writing file {file_name}: {e}");
                 return;
             }
-            println!("Done");
+            outln!("Done");
         }
-        Err(_) => eprintln!("Error opening file {file_name}"),
+        Err(_) => errln!("Error opening file {file_name}"),
     }
 }
 
@@ -229,17 +229,17 @@ fn print_device(intf: &mut dyn Interface, id: u8) -> i32 {
     let mut fru = match query_fru_info(intf, id) {
         Ok(fru) => fru,
         Err(FruInfoError::NoResponse) => {
-            println!(" Device not present (No Response)");
+            outln!(" Device not present (No Response)");
             return -1;
         }
         Err(FruInfoError::Ccode(c)) => {
-            println!(" Device not present ({})", cc::completion_code_str(c));
+            outln!(" Device not present ({})", cc::completion_code_str(c));
             return -1;
         }
     };
 
     if fru.size < 1 {
-        eprintln!(" Invalid FRU size {}", fru.size);
+        errln!(" Invalid FRU size {}", fru.size);
         return -1;
     }
 
@@ -256,7 +256,7 @@ fn print_device(intf: &mut dyn Interface, id: u8) -> i32 {
     let header = &header[..8];
 
     if header[0] != 1 {
-        eprintln!(" Unknown FRU header version 0x{:02x}", header[0]);
+        errln!(" Unknown FRU header version 0x{:02x}", header[0]);
         return -1;
     }
 
@@ -295,18 +295,18 @@ fn print_device(intf: &mut dyn Interface, id: u8) -> i32 {
 }
 
 fn print_all(intf: &mut dyn Interface) -> i32 {
-    println!("FRU Device Description : Builtin FRU Device (ID 0)");
+    outln!("FRU Device Description : Builtin FRU Device (ID 0)");
 
     let req = Request::new(consts::NETFN_APP, consts::IPMI_GET_DEVICE_ID);
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Get Device ID command failed");
+            errln!("Get Device ID command failed");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get Device ID command failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -317,7 +317,7 @@ fn print_all(intf: &mut dyn Interface) -> i32 {
     let mut rc = 0;
     if adtl & 0x08 != 0 {
         rc = print_device(intf, 0);
-        println!();
+        outln!();
     }
 
     // The C implementation then walks the SDR repository for FRU and MC
@@ -373,7 +373,7 @@ fn print_chassis(intf: &mut dyn Interface, fru: &mut FruInfo, id: u8, offset: u3
     } else {
         data[2] as usize
     };
-    println!(
+    outln!(
         " Chassis Type          : {}",
         CHASSIS_TYPE_DESC[chassis_type]
     );
@@ -390,7 +390,7 @@ fn print_chassis(intf: &mut dyn Interface, fru: &mut FruInfo, id: u8, offset: u3
         }
     }
 
-    println!(
+    outln!(
         " Chassis Area Checksum : {}",
         if checksum_is_valid(&data, fru_len) {
             "OK"
@@ -413,7 +413,7 @@ fn print_board(intf: &mut dyn Interface, fru: &mut FruInfo, id: u8, offset: u32)
     };
 
     let mut i = 3usize;
-    println!(
+    outln!(
         " Board Mfg Date        : {}",
         format_fru_timestamp(&data, i)
     );
@@ -433,7 +433,7 @@ fn print_board(intf: &mut dyn Interface, fru: &mut FruInfo, id: u8, offset: u32)
         }
     }
 
-    println!(
+    outln!(
         " Board Area Checksum   : {}",
         if checksum_is_valid(&data, fru_len) {
             "OK"
@@ -472,7 +472,7 @@ fn print_product(intf: &mut dyn Interface, fru: &mut FruInfo, id: u8, offset: u3
         }
     }
 
-    println!(
+    outln!(
         " Product Area Checksum : {}",
         if checksum_is_valid(&data, fru_len) {
             "OK"
@@ -486,7 +486,7 @@ fn print_product(intf: &mut dyn Interface, fru: &mut FruInfo, id: u8, offset: u3
 fn print_field(data: &[u8], i: &mut usize, label: &str) {
     if let Some(s) = get_fru_area_str(data, i) {
         if !s.is_empty() {
-            println!("{label}{s}");
+            outln!("{label}{s}");
         }
     }
 }
@@ -495,7 +495,7 @@ fn print_field(data: &[u8], i: &mut usize, label: &str) {
 fn print_field_verbose(data: &[u8], i: &mut usize, label: &str) {
     if let Some(s) = get_fru_area_str(data, i) {
         if !s.is_empty() && verbose::level() > 0 {
-            println!("{label}{s}");
+            outln!("{label}{s}");
         }
     }
 }
@@ -533,13 +533,13 @@ fn print_multirec(intf: &mut dyn Interface, fru: &mut FruInfo, id: u8, offset: u
                     | u32::from(byte(&body, 1)) << 8
                     | u32::from(byte(&body, 2)) << 16;
                 if iana == ipmi_core::oem::IPMI_OEM_PICMG {
-                    println!("  PICMG Extension Record");
-                    eprintln!(
+                    outln!("  PICMG Extension Record");
+                    errln!(
                         "  (PICMG extension record decoding is not implemented in this build)"
                     );
                 } else {
                     let reg = registry.get_or_insert_with(OemRegistry::load);
-                    println!("  OEM ({}) Record", reg.manufacturer_name(iana));
+                    outln!("  OEM ({}) Record", reg.manufacturer_name(iana));
                 }
             }
             _ => {}
@@ -583,23 +583,23 @@ fn print_power_supply(d: &[u8]) {
     let combined_capacity = le16(d, 21);
     let rps_threshold = byte(d, 23);
 
-    println!(" Power Supply Record");
-    println!("  Capacity                   : {capacity} W");
-    println!("  Peak VA                    : {peak_va} VA");
-    println!("  Inrush Current             : {inrush_current} A");
-    println!("  Inrush Interval            : {inrush_interval} ms");
-    println!(
+    outln!(" Power Supply Record");
+    outln!("  Capacity                   : {capacity} W");
+    outln!("  Peak VA                    : {peak_va} VA");
+    outln!("  Inrush Current             : {inrush_current} A");
+    outln!("  Inrush Interval            : {inrush_interval} ms");
+    outln!(
         "  Input Voltage Range 1      : {}-{} V",
         lowend_input1 / 100,
         highend_input1 / 100
     );
-    println!(
+    outln!(
         "  Input Voltage Range 2      : {}-{} V",
         lowend_input2 / 100,
         highend_input2 / 100
     );
-    println!("  Input Frequency Range      : {lowend_freq}-{highend_freq} Hz");
-    println!("  A/C Dropout Tolerance      : {dropout_tolerance} ms");
+    outln!("  Input Frequency Range      : {lowend_freq}-{highend_freq} Hz");
+    outln!("  A/C Dropout Tolerance      : {dropout_tolerance} ms");
 
     let tail = if predictive_fail {
         if rps_threshold != 0 {
@@ -616,7 +616,7 @@ fn print_power_supply(d: &[u8]) {
     } else {
         ""
     };
-    println!(
+    outln!(
         "  Flags                      : {}{}{}{}{}",
         if predictive_fail {
             "'Predictive fail' "
@@ -636,12 +636,12 @@ fn print_power_supply(d: &[u8]) {
         if hotswap { "'Hot swap' " } else { "" },
         tail
     );
-    println!("  Peak capacity              : {peak_capacity} W");
-    println!("  Peak capacity holdup       : {peak_hold_up_time} s");
+    outln!("  Peak capacity              : {peak_capacity} W");
+    outln!("  Peak capacity holdup       : {peak_hold_up_time} s");
     if combined_capacity == 0 {
-        println!("  Combined capacity          : not specified");
+        outln!("  Combined capacity          : not specified");
     } else {
-        println!(
+        outln!(
             "  Combined capacity          : {} W ({} and {})",
             combined_capacity,
             voltage_desc(combined_voltage1),
@@ -649,7 +649,7 @@ fn print_power_supply(d: &[u8]) {
         );
     }
     if predictive_fail {
-        println!("  Fan lower threshold        : {rps_threshold} RPS");
+        outln!("  Fan lower threshold        : {rps_threshold} RPS");
     }
 }
 
@@ -671,30 +671,30 @@ fn print_dc_output(d: &[u8]) {
     let min_current = le16(d, 9);
     let max_current = le16(d, 11);
 
-    println!(" DC Output Record");
-    println!("  Output Number              : {output_number}");
-    println!(
+    outln!(" DC Output Record");
+    outln!("  Output Number              : {output_number}");
+    outln!(
         "  Standby power              : {}",
         if standby { "Yes" } else { "No" }
     );
-    println!(
+    outln!(
         "  Nominal voltage            : {:.2} V",
         nominal_voltage as f64 / 100.0
     );
-    println!(
+    outln!(
         "  Max negative deviation     : {:.2} V",
         max_neg_dev as f64 / 100.0
     );
-    println!(
+    outln!(
         "  Max positive deviation     : {:.2} V",
         max_pos_dev as f64 / 100.0
     );
-    println!("  Ripple and noise pk-pk     : {ripple_and_noise} mV");
-    println!(
+    outln!("  Ripple and noise pk-pk     : {ripple_and_noise} mV");
+    outln!(
         "  Minimum current draw       : {:.3} A",
         min_current as f64 / 1000.0
     );
-    println!(
+    outln!(
         "  Maximum current draw       : {:.3} A",
         max_current as f64 / 1000.0
     );
@@ -709,26 +709,26 @@ fn print_dc_load(d: &[u8]) {
     let min_current = le16(d, 9);
     let max_current = le16(d, 11);
 
-    println!(" DC Load Record");
-    println!("  Output Number              : {output_number}");
-    println!(
+    outln!(" DC Load Record");
+    outln!("  Output Number              : {output_number}");
+    outln!(
         "  Nominal voltage            : {:.2} V",
         nominal_voltage as f64 / 100.0
     );
-    println!(
+    outln!(
         "  Min voltage allowed        : {:.2} V",
         min_voltage as f64 / 100.0
     );
-    println!(
+    outln!(
         "  Max voltage allowed        : {:.2} V",
         max_voltage as f64 / 100.0
     );
-    println!("  Ripple and noise pk-pk     : {ripple_and_noise} mV");
-    println!(
+    outln!("  Ripple and noise pk-pk     : {ripple_and_noise} mV");
+    outln!(
         "  Minimum current load       : {:.3} A",
         min_current as f64 / 1000.0
     );
-    println!(
+    outln!(
         "  Maximum current load       : {:.3} A",
         max_current as f64 / 1000.0
     );
@@ -749,7 +749,7 @@ fn print_management_access(body: &[u8], rlen: u32) {
         6 => ("Component Ping Address", 8, 64, false),
         7 => ("System Unique ID", 16, 16, true),
         _ => {
-            eprintln!(
+            errln!(
                 "Unsupported subtype 0x{subtype:02x} found for multi-record area management record"
             );
             return;
@@ -757,7 +757,7 @@ fn print_management_access(body: &[u8], rlen: u32) {
     };
 
     if datalen < minlen || datalen > maxlen {
-        eprintln!("Wrong data length {datalen}, must be {minlen} < X < {maxlen}");
+        errln!("Wrong data length {datalen}, must be {minlen} < X < {maxlen}");
     }
 
     let value = if is_uuid {
@@ -766,7 +766,7 @@ fn print_management_access(body: &[u8], rlen: u32) {
         let end = data.iter().position(|&b| b == 0).unwrap_or(data.len());
         String::from_utf8_lossy(&data[..end.min(datalen)]).into_owned()
     };
-    println!(" {name:<22}: {value}");
+    outln!(" {name:<22}: {value}");
 }
 
 // ---------------------------------------------------------------------------
@@ -784,7 +784,7 @@ fn read_fru_area(
     length: u32,
 ) -> Option<Vec<u8>> {
     if offset > fru.size {
-        eprintln!("Read FRU Area offset incorrect: {} > {}", offset, fru.size);
+        errln!("Read FRU Area offset incorrect: {} > {}", offset, fru.size);
         return None;
     }
 
@@ -825,7 +825,7 @@ fn read_fru_area(
         let rsp = match intf.sendrecv(&req) {
             Ok(rsp) => rsp,
             Err(_) => {
-                eprintln!("FRU Read failed");
+                errln!("FRU Read failed");
                 return None;
             }
         };
@@ -843,7 +843,7 @@ fn read_fru_area(
                 ));
                 continue;
             }
-            eprintln!("FRU Read failed: {}", cc::completion_code_str(rsp.ccode));
+            errln!("FRU Read failed: {}", cc::completion_code_str(rsp.ccode));
             return None;
         }
 
@@ -856,7 +856,7 @@ fn read_fru_area(
         };
 
         if rsp.data.is_empty() || count as usize > rsp.data.len() - 1 || count > size_left {
-            println!(" Not enough buffer size");
+            outln!(" Not enough buffer size");
             return None;
         }
 
@@ -1037,13 +1037,13 @@ fn format_unix_timestamp(_ts: i64) -> String {
 
 fn log_info(msg: &str) {
     if verbose::level() >= 1 {
-        eprintln!("{msg}");
+        errln!("{msg}");
     }
 }
 
 fn log_debug(msg: &str) {
     if verbose::level() >= 2 {
-        eprintln!("{msg}");
+        errln!("{msg}");
     }
 }
 
@@ -1052,14 +1052,14 @@ fn printbuf(data: &[u8], desc: &str) {
     if data.is_empty() || verbose::level() < 1 {
         return;
     }
-    eprintln!("{desc} ({} bytes)", data.len());
+    errln!("{desc} ({} bytes)", data.len());
     for (i, b) in data.iter().enumerate() {
         if i % 16 == 0 && i != 0 {
-            eprintln!();
+            errln!();
         }
-        eprint!(" {b:02x}");
+        err!(" {b:02x}");
     }
-    eprintln!();
+    errln!();
 }
 
 #[cfg(test)]

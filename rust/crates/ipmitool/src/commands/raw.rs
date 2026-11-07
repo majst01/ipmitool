@@ -14,12 +14,12 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         return 0;
     }
     if args.len() < 2 {
-        eprintln!("Not enough parameters given.");
+        errln!("Not enough parameters given.");
         print_help();
         return -1;
     }
     if args.len() > 256 {
-        eprintln!("Raw command input limit (256 bytes) exceeded");
+        errln!("Raw command input limit (256 bytes) exceeded");
         return -1;
     }
 
@@ -27,14 +27,14 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let netfn = match resolve_netfn(&args[0]) {
         Some(n) => n,
         None => {
-            eprintln!("Given netfn \"{}\" is invalid.", args[0]);
+            errln!("Given netfn \"{}\" is invalid.", args[0]);
             return -1;
         }
     };
     let cmd = match parse_u8(&args[1]) {
         Some(v) => v,
         None => {
-            eprintln!("Given command \"{}\" is invalid.", args[1]);
+            errln!("Given command \"{}\" is invalid.", args[1]);
             return -1;
         }
     };
@@ -44,14 +44,14 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         match parse_u8(a) {
             Some(v) => data.push(v),
             None => {
-                eprintln!("Given data \"{a}\" is invalid.");
+                errln!("Given data \"{a}\" is invalid.");
                 return -1;
             }
         }
     }
 
     let channel = intf.session_params().target_channel & 0x0f;
-    eprintln!(
+    errln!(
         "RAW REQ (channel=0x{channel:x} netfn=0x{netfn:x} lun=0x{lun:x} cmd=0x{cmd:x} data_len={})",
         data.len()
     );
@@ -63,16 +63,16 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(e) => {
-            eprintln!(
+            errln!(
                 "Unable to send RAW command (channel=0x{channel:x} netfn=0x{netfn:x} lun=0x{lun:x} cmd=0x{cmd:x})"
             );
-            eprintln!("{e}");
+            errln!("{e}");
             return -1;
         }
     };
 
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Unable to send RAW command (channel=0x{channel:x} netfn=0x{netfn:x} lun=0x{lun:x} cmd=0x{cmd:x} rsp=0x{:x}): {}",
             rsp.ccode,
             cc::completion_code_str(rsp.ccode)
@@ -80,14 +80,14 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         return -1;
     }
 
-    eprintln!("RAW RSP ({} bytes)", rsp.data.len());
+    errln!("RAW RSP ({} bytes)", rsp.data.len());
     for (i, b) in rsp.data.iter().enumerate() {
         if i % 16 == 0 && i != 0 {
-            println!();
+            outln!();
         }
-        print!(" {b:02x}");
+        out!(" {b:02x}");
     }
-    println!();
+    outln!();
 
     0
 }
@@ -100,8 +100,8 @@ fn resolve_netfn(s: &str) -> Option<u8> {
 }
 
 fn print_help() {
-    eprintln!("RAW Commands:  raw <netfn> <cmd> [data]");
-    eprintln!("Network Function Codes");
+    errln!("RAW Commands:  raw <netfn> <cmd> [data]");
+    errln!("Network Function Codes");
     for (val, name) in [
         ("0", "Chassis"),
         ("2", "Bridge"),
@@ -111,7 +111,7 @@ fn print_help() {
         ("a", "Storage"),
         ("c", "Transport"),
     ] {
-        eprintln!("\t{val:<16}  {name}");
+        errln!("\t{val:<16}  {name}");
     }
-    eprintln!("(can also use raw hex values)");
+    errln!("(can also use raw hex values)");
 }

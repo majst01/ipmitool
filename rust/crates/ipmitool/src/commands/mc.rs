@@ -64,7 +64,7 @@ const MC_ENABLES: [EnablesBit; 7] = [
 
 pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let Some(cmd) = args.first().map(String::as_str) else {
-        eprintln!("Not enough parameters given.");
+        errln!("Not enough parameters given.");
         print_usage();
         return -1;
     };
@@ -81,7 +81,7 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         "setenables" => set_enables(intf, rest),
         "selftest" => selftest(intf),
         other => {
-            eprintln!("Invalid mc command: {other}");
+            errln!("Invalid mc command: {other}");
             -1
         }
     }
@@ -92,12 +92,12 @@ fn info(intf: &mut dyn Interface) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Get Device ID command failed");
+            errln!("Get Device ID command failed");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get Device ID command failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -105,7 +105,7 @@ fn info(intf: &mut dyn Interface) -> i32 {
     }
     let d = &rsp.data;
     if d.len() < 11 {
-        eprintln!("Get Device ID command failed: short response");
+        errln!("Get Device ID command failed: short response");
         return -1;
     }
 
@@ -118,38 +118,38 @@ fn info(intf: &mut dyn Interface) -> i32 {
     let manufacturer = d[6] as u32 | (d[7] as u32) << 8 | (d[8] as u32) << 16;
     let product_id = d[9] as u16 | (d[10] as u16) << 8;
 
-    println!("Device ID                 : {device_id}");
-    println!("Device Revision           : {}", device_revision & 0x0f);
-    println!(
+    outln!("Device ID                 : {device_id}");
+    outln!("Device Revision           : {}", device_revision & 0x0f);
+    outln!(
         "Firmware Revision         : {}.{:02x}",
         fw_rev1 & 0x7f,
         fw_rev2
     );
-    println!(
+    outln!(
         "IPMI Version              : {:x}.{:x}",
         ipmi_version & 0x0f,
         (ipmi_version & 0xf0) >> 4
     );
     let registry = ipmi_core::oem::OemRegistry::load();
 
-    println!("Manufacturer ID           : {manufacturer}");
-    println!(
+    outln!("Manufacturer ID           : {manufacturer}");
+    outln!(
         "Manufacturer Name         : {}",
         registry.manufacturer_name(manufacturer)
     );
-    println!(
+    outln!(
         "Product ID                : {product_id} (0x{:02x}{:02x})",
         d[10], d[9]
     );
-    println!(
+    outln!(
         "Product Name              : {}",
         registry.product_name(manufacturer, product_id)
     );
-    println!(
+    outln!(
         "Device Available          : {}",
         if fw_rev1 & 0x80 != 0 { "no" } else { "yes" }
     );
-    println!(
+    outln!(
         "Provides Device SDRs      : {}",
         if device_revision & 0x80 != 0 {
             "yes"
@@ -157,15 +157,15 @@ fn info(intf: &mut dyn Interface) -> i32 {
             "no"
         }
     );
-    println!("Additional Device Support :");
+    outln!("Additional Device Support :");
     for (i, name) in ADTL_DEV_SUPPORT.iter().enumerate() {
         if adtl & (1 << i) != 0 {
-            println!("    {name}");
+            outln!("    {name}");
         }
     }
     if d.len() == 15 {
-        println!("Aux Firmware Rev Info     : ");
-        println!(
+        outln!("Aux Firmware Rev Info     : ");
+        outln!(
             "    0x{:02x}\n    0x{:02x}\n    0x{:02x}\n    0x{:02x}",
             d[11], d[12], d[13], d[14]
         );
@@ -175,20 +175,20 @@ fn info(intf: &mut dyn Interface) -> i32 {
 
 fn reset(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let Some(kind) = args.first().map(String::as_str) else {
-        eprintln!("Not enough parameters given.");
-        eprintln!("usage: mc reset <warm|cold>");
+        errln!("Not enough parameters given.");
+        errln!("usage: mc reset <warm|cold>");
         return -1;
     };
     if kind == "help" {
-        eprintln!("usage: mc reset <warm|cold>");
+        errln!("usage: mc reset <warm|cold>");
         return 0;
     }
     let (cmd, label) = match kind {
         "cold" => (0x02u8, "cold"),
         "warm" => (0x03u8, "warm"),
         other => {
-            eprintln!("Invalid mc reset command: {other}");
-            eprintln!("usage: mc reset <warm|cold>");
+            errln!("Invalid mc reset command: {other}");
+            errln!("usage: mc reset <warm|cold>");
             return -1;
         }
     };
@@ -199,11 +199,11 @@ fn reset(intf: &mut dyn Interface, args: &[String]) -> i32 {
         // A cold reset commonly gets no answer; that is expected.
         Err(_) if label == "cold" => {}
         Err(_) => {
-            eprintln!("MC reset command failed.");
+            errln!("MC reset command failed.");
             return -1;
         }
         Ok(rsp) if !rsp.ok() => {
-            eprintln!(
+            errln!(
                 "MC reset command failed: {}",
                 cc::completion_code_str(rsp.ccode)
             );
@@ -211,7 +211,7 @@ fn reset(intf: &mut dyn Interface, args: &[String]) -> i32 {
         }
         Ok(_) => {}
     }
-    println!("Sent {label} reset command to MC");
+    outln!("Sent {label} reset command to MC");
     0
 }
 
@@ -220,12 +220,12 @@ fn get_enables(intf: &mut dyn Interface) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Get Global Enables command failed");
+            errln!("Get Global Enables command failed");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get Global Enables command failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -233,7 +233,7 @@ fn get_enables(intf: &mut dyn Interface) -> i32 {
     }
     let en = rsp.data.first().copied().unwrap_or(0);
     for bf in &MC_ENABLES {
-        println!(
+        outln!(
             "{:<40} : {}abled",
             bf.desc,
             if en & bf.mask != 0 { "en" } else { "dis" }
@@ -256,12 +256,12 @@ fn set_enables(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Get Global Enables command failed");
+            errln!("Get Global Enables command failed");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get Global Enables command failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
@@ -278,20 +278,20 @@ fn set_enables(intf: &mut dyn Interface, args: &[String]) -> i32 {
             };
             match setting {
                 "off" => {
-                    println!("Disabling {}", bf.desc);
+                    outln!("Disabling {}", bf.desc);
                     en &= !bf.mask;
                 }
                 "on" => {
-                    println!("Enabling {}", bf.desc);
+                    outln!("Enabling {}", bf.desc);
                     en |= bf.mask;
                 }
-                _ => eprintln!("Unrecognized option: {arg}"),
+                _ => errln!("Unrecognized option: {arg}"),
             }
         }
     }
 
     if en == original {
-        println!("\nNothing to change...");
+        outln!("\nNothing to change...");
         return get_enables(intf);
     }
 
@@ -300,19 +300,19 @@ fn set_enables(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let rsp = match intf.sendrecv(&set) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Set Global Enables command failed");
+            errln!("Set Global Enables command failed");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Set Global Enables command failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
         return -1;
     }
 
-    println!("\nVerifying...");
+    outln!("\nVerifying...");
     get_enables(intf)
 }
 
@@ -321,27 +321,27 @@ fn selftest(intf: &mut dyn Interface) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("No response from devices");
+            errln!("No response from devices");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!("Bad response: ({})", cc::completion_code_str(rsp.ccode));
+        errln!("Bad response: ({})", cc::completion_code_str(rsp.ccode));
         return -1;
     }
     let code = rsp.data.first().copied().unwrap_or(0);
     let test = rsp.data.get(1).copied().unwrap_or(0);
     match code {
         0x55 => {
-            println!("Selftest: passed");
+            outln!("Selftest: passed");
             0
         }
         0x56 => {
-            println!("Selftest: not implemented");
+            outln!("Selftest: not implemented");
             -1
         }
         0x57 => {
-            println!("Selftest: device corrupted");
+            outln!("Selftest: device corrupted");
             const CHECKS: [(u8, &str); 8] = [
                 (0x80, " -> SEL device not accessible"),
                 (0x40, " -> SDR repository not accessible"),
@@ -354,22 +354,22 @@ fn selftest(intf: &mut dyn Interface) -> i32 {
             ];
             for (mask, msg) in CHECKS {
                 if test & mask != 0 {
-                    println!("{msg}");
+                    outln!("{msg}");
                 }
             }
             -1
         }
         0x58 => {
-            println!("Selftest     : fatal error");
-            println!("Failure code : {test:02x}");
+            outln!("Selftest     : fatal error");
+            outln!("Failure code : {test:02x}");
             -1
         }
         0xff => {
-            println!("Selftest: reserved");
+            outln!("Selftest: reserved");
             -1
         }
         _ => {
-            println!("Selftest: unknown status");
+            outln!("Selftest: unknown status");
             -1
         }
     }
@@ -396,7 +396,7 @@ fn guid(intf: &mut dyn Interface, args: &[String]) -> i32 {
         Some("auto") => GuidMode::Auto,
         Some("dump") => GuidMode::Dump,
         Some(other) if other != "help" => {
-            eprintln!("Invalid GUID mode: {other}");
+            errln!("Invalid GUID mode: {other}");
             return -1;
         }
         _ => GuidMode::Auto,
@@ -406,42 +406,42 @@ fn guid(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let rsp = match intf.sendrecv(&req) {
         Ok(rsp) => rsp,
         Err(_) => {
-            eprintln!("Get GUID command failed");
+            errln!("Get GUID command failed");
             return -1;
         }
     };
     if !rsp.ok() {
-        eprintln!(
+        errln!(
             "Get GUID command failed: {}",
             cc::completion_code_str(rsp.ccode)
         );
         return -1;
     }
     if rsp.data.len() < 16 {
-        eprintln!("Get GUID command failed: short response");
+        errln!("Get GUID command failed: short response");
         return -1;
     }
     let data: [u8; 16] = rsp.data[..16].try_into().unwrap();
 
     let parsed = parse_guid(&data, mode);
-    println!("System GUID   : {parsed}");
+    outln!("System GUID   : {parsed}");
 
     if mode == GuidMode::Auto {
-        print!("GUID Encoding : {}", parsed.mode_name());
+        out!("GUID Encoding : {}", parsed.mode_name());
         if parsed.mode != GuidMode::Ipmi {
-            print!(" (WARNING: IPMI Specification violation!)");
+            out!(" (WARNING: IPMI Specification violation!)");
         }
-        println!();
+        outln!();
     }
     if parsed.mode != GuidMode::Dump {
-        print!("GUID Version  : {}", parsed.version_name());
+        out!("GUID Version  : {}", parsed.version_name());
         if parsed.version == 0 {
-            println!(" ({})", parsed.version_nibble());
+            outln!(" ({})", parsed.version_nibble());
         } else if parsed.version == 1 {
-            println!();
-            println!("Timestamp     : {}", format_unix(parsed.time));
+            outln!();
+            outln!("Timestamp     : {}", format_unix(parsed.time));
         } else {
-            println!();
+            outln!();
         }
     }
     0
@@ -684,7 +684,7 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 }
 
 fn print_usage() {
-    eprintln!(
+    errln!(
         "MC Commands:\n  info, reset, selftest, getenables, setenables, guid,\n  watchdog, getsysinfo, setsysinfo"
     );
 }

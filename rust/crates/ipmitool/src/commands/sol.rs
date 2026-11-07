@@ -39,11 +39,11 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
         "activate" => activate(intf, rest),
         "deactivate" => deactivate(intf, rest),
         "looptest" => {
-            eprintln!("Error: sol looptest is not implemented");
+            errln!("Error: sol looptest is not implemented");
             -1
         }
         other => {
-            eprintln!("Invalid sol command: {other}");
+            errln!("Invalid sol command: {other}");
             print_usage();
             -1
         }
@@ -51,11 +51,11 @@ pub fn main(intf: &mut dyn Interface, args: &[String]) -> i32 {
 }
 
 fn print_usage() {
-    eprintln!("SOL Commands: info [<channel number>]");
-    eprintln!("              set <parameter> <value> [channel]");
-    eprintln!("              payload <enable|disable|status> [channel] [userid]");
-    eprintln!("              activate [<usesolkeepalive|nokeepalive>] [instance=<number>]");
-    eprintln!("              deactivate [instance=<number>]");
+    errln!("SOL Commands: info [<channel number>]");
+    errln!("              set <parameter> <value> [channel]");
+    errln!("              payload <enable|disable|status> [channel] [userid]");
+    errln!("              activate [<usesolkeepalive|nokeepalive>] [instance=<number>]");
+    errln!("              deactivate [instance=<number>]");
 }
 
 /// Parse a decimal or `0x`-prefixed byte.
@@ -74,7 +74,7 @@ fn parse_channel(args: &[String], index: usize) -> Result<u8, i32> {
     match args.get(index) {
         None => Ok(DEFAULT_CHANNEL),
         Some(s) => parse_u8(s).ok_or_else(|| {
-            eprintln!("Invalid channel number: {s}");
+            errln!("Invalid channel number: {s}");
             -1
         }),
     }
@@ -90,7 +90,7 @@ fn get_param(intf: &mut dyn Interface, channel: u8, selector: u8) -> Result<Opti
     let mut req = Request::new(consts::NETFN_TRANSPORT, sol::IPMI_GET_SOL_CONFIG_PARAMETERS);
     req.data = vec![channel, selector, 0x00, 0x00];
     let rsp = intf.sendrecv(&req).map_err(|_| {
-        eprintln!(
+        errln!(
             "Error: No response requesting SOL parameter '{}'",
             sol::parameter_name(selector)
         );
@@ -99,14 +99,14 @@ fn get_param(intf: &mut dyn Interface, channel: u8, selector: u8) -> Result<Opti
     match rsp.ccode {
         0x00 => Ok(Some(rsp.data)),
         0x80 => {
-            eprintln!(
+            errln!(
                 "Info: SOL parameter '{}' not supported",
                 sol::parameter_name(selector)
             );
             Ok(None)
         }
         code => {
-            eprintln!(
+            errln!(
                 "Error requesting SOL parameter '{}': {}",
                 sol::parameter_name(selector),
                 cc::completion_code_str(code)
@@ -183,15 +183,15 @@ fn info(intf: &mut dyn Interface, args: &[String]) -> i32 {
         Ok(p) => p,
         Err(code) => return code,
     };
-    println!(
+    outln!(
         "Set in progress                 : {}",
         sol::set_in_progress_str(params.set_in_progress)
     );
-    println!(
+    outln!(
         "Enabled                         : {}",
         if params.enabled { "true" } else { "false" }
     );
-    println!(
+    outln!(
         "Force Encryption                : {}",
         if params.force_encryption {
             "true"
@@ -199,7 +199,7 @@ fn info(intf: &mut dyn Interface, args: &[String]) -> i32 {
             "false"
         }
     );
-    println!(
+    outln!(
         "Force Authentication            : {}",
         if params.force_authentication {
             "true"
@@ -207,36 +207,36 @@ fn info(intf: &mut dyn Interface, args: &[String]) -> i32 {
             "false"
         }
     );
-    println!(
+    outln!(
         "Privilege Level                 : {}",
         values::privlvl_str(params.privilege_level)
     );
-    println!(
+    outln!(
         "Character Accumulate Level (ms) : {}",
         params.character_accumulate_level as u16 * 5
     );
-    println!(
+    outln!(
         "Character Send Threshold        : {}",
         params.character_send_threshold
     );
-    println!("Retry Count                     : {}", params.retry_count);
-    println!(
+    outln!("Retry Count                     : {}", params.retry_count);
+    outln!(
         "Retry Interval (ms)             : {}",
         params.retry_interval as u16 * 10
     );
-    println!(
+    outln!(
         "Volatile Bit Rate (kbps)        : {}",
         sol::bit_rate_str(params.volatile_bit_rate)
     );
-    println!(
+    outln!(
         "Non-Volatile Bit Rate (kbps)    : {}",
         sol::bit_rate_str(params.non_volatile_bit_rate)
     );
-    println!(
+    outln!(
         "Payload Channel                 : {} (0x{:02x})",
         params.payload_channel, params.payload_channel
     );
-    println!("Payload Port                    : {}", params.payload_port);
+    outln!("Payload Port                    : {}", params.payload_port);
     0
 }
 
@@ -258,7 +258,7 @@ fn payload(intf: &mut dyn Interface, args: &[String]) -> i32 {
         Some(s) => match parse_u8(s) {
             Some(id) => id,
             None => {
-                eprintln!("Invalid user id: {s}");
+                errln!("Invalid user id: {s}");
                 return -1;
             }
         },
@@ -280,7 +280,7 @@ fn payload(intf: &mut dyn Interface, args: &[String]) -> i32 {
             match intf.sendrecv(&req) {
                 Ok(rsp) if rsp.ccode == 0 => 0,
                 Ok(rsp) => {
-                    eprintln!(
+                    errln!(
                         "Error {}abling SOL payload for user {} on channel {}: {}",
                         if enable { "en" } else { "dis" },
                         userid,
@@ -290,7 +290,7 @@ fn payload(intf: &mut dyn Interface, args: &[String]) -> i32 {
                     -1
                 }
                 Err(_) => {
-                    eprintln!(
+                    errln!(
                         "Error {}abling SOL payload for user {} on channel {}",
                         if enable { "en" } else { "dis" },
                         userid,
@@ -306,12 +306,12 @@ fn payload(intf: &mut dyn Interface, args: &[String]) -> i32 {
             let rsp = match intf.sendrecv(&req) {
                 Ok(rsp) => rsp,
                 Err(_) => {
-                    eprintln!("Error. No valid response received.");
+                    errln!("Error. No valid response received.");
                     return -1;
                 }
             };
             if rsp.ccode != 0 {
-                eprintln!(
+                errln!(
                     "Error getting SOL payload status for user {} on channel {}: {}",
                     userid,
                     channel,
@@ -320,12 +320,12 @@ fn payload(intf: &mut dyn Interface, args: &[String]) -> i32 {
                 return -1;
             }
             if rsp.data.len() != 4 {
-                eprintln!(
+                errln!(
                     "Error parsing SOL payload status for user {userid} on channel {channel}"
                 );
                 return -1;
             }
-            println!(
+            outln!(
                 "User {} on channel {} is {}abled",
                 userid,
                 channel,
@@ -334,7 +334,7 @@ fn payload(intf: &mut dyn Interface, args: &[String]) -> i32 {
             0
         }
         other => {
-            eprintln!("Invalid payload action: {other}");
+            errln!("Invalid payload action: {other}");
             print_usage();
             -1
         }
@@ -355,7 +355,7 @@ fn send_set(intf: &mut dyn Interface, channel: u8, selector: u8, values: &[u8]) 
     match intf.sendrecv(&req) {
         Ok(rsp) => Ok(rsp.ccode),
         Err(_) => {
-            eprintln!(
+            errln!(
                 "Error setting SOL parameter '{}'",
                 sol::parameter_name(selector)
             );
@@ -373,8 +373,8 @@ fn parse_range(value: &str, param: &str, min: u8, max: u8) -> Result<u8, i32> {
     match parse_u8(value) {
         Some(v) if v >= min && v <= max => Ok(v),
         _ => {
-            eprintln!("Invalid value {value} for parameter {param}");
-            eprintln!("Valid values are {min}-{max}");
+            errln!("Invalid value {value} for parameter {param}");
+            errln!("Valid values are {min}-{max}");
             Err(-1)
         }
     }
@@ -389,8 +389,8 @@ fn parse_bit_rate(value: &str) -> Result<u8, i32> {
         "57.6" => Ok(0x09),
         "115.2" => Ok(0x0a),
         _ => {
-            eprintln!("Invalid value \"{value}\" for parameter \"bit-rate\"");
-            eprintln!("Valid values are serial, 9.6 19.2, 38.4, 57.6 and 115.2");
+            errln!("Invalid value \"{value}\" for parameter \"bit-rate\"");
+            errln!("Valid values are serial, 9.6 19.2, 38.4, 57.6 and 115.2");
             Err(-1)
         }
     }
@@ -413,7 +413,7 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
         } else if let Some(c) = parse_u8(extra) {
             channel = c;
         } else {
-            eprintln!("Invalid channel number: {extra}");
+            errln!("Invalid channel number: {extra}");
             return -1;
         }
     }
@@ -428,8 +428,8 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
                 "set-in-progress" => 0x01,
                 "commit-write" => 0x02,
                 _ => {
-                    eprintln!("Invalid value {value} for parameter {param}");
-                    eprintln!("Valid values are set-complete, set-in-progress and commit-write");
+                    errln!("Invalid value {value} for parameter {param}");
+                    errln!("Valid values are set-complete, set-in-progress and commit-write");
                     return -1;
                 }
             };
@@ -441,8 +441,8 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
                 "true" => 0x01,
                 "false" => 0x00,
                 _ => {
-                    eprintln!("Invalid value {value} for parameter {param}");
-                    eprintln!("Valid values are true and false");
+                    errln!("Invalid value {value} for parameter {param}");
+                    errln!("Valid values are true and false");
                     return -1;
                 }
             };
@@ -479,8 +479,8 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
                         "admin" => 0x04,
                         "oem" => 0x05,
                         _ => {
-                            eprintln!("Invalid value {value} for parameter {param}");
-                            eprintln!("Valid values are user, operator, admin, and oem");
+                            errln!("Invalid value {value} for parameter {param}");
+                            errln!("Valid values are user, operator, admin, and oem");
                             return -1;
                         }
                     };
@@ -555,7 +555,7 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
             values = vec![rate];
         }
         _ => {
-            eprintln!("Error: invalid SOL parameter {param}");
+            errln!("Error: invalid SOL parameter {param}");
             return -1;
         }
     }
@@ -575,17 +575,17 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
     let is_commit_write = param == "set-in-progress" && value == "commit-write";
     if !is_commit_write && ccode != 0 {
         match ccode {
-            0x80 => eprintln!("Error setting SOL parameter '{param}': Parameter not supported"),
-            0x81 => eprintln!(
+            0x80 => errln!("Error setting SOL parameter '{param}': Parameter not supported"),
+            0x81 => errln!(
                 "Error setting SOL parameter '{param}': Attempt to set set-in-progress when not in set-complete state"
             ),
             0x82 => {
-                eprintln!("Error setting SOL parameter '{param}': Attempt to write read-only parameter")
+                errln!("Error setting SOL parameter '{param}': Attempt to write read-only parameter")
             }
             0x83 => {
-                eprintln!("Error setting SOL parameter '{param}': Attempt to write write-only parameter")
+                errln!("Error setting SOL parameter '{param}': Attempt to write write-only parameter")
             }
-            _ => eprintln!(
+            _ => errln!(
                 "Error setting SOL parameter '{param}' to '{value}': {}",
                 cc::completion_code_str(ccode)
             ),
@@ -599,7 +599,7 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
     if guard {
         let _ = set_in_progress(intf, channel, 0x02); // commit-write, may be unimplemented
         if set_in_progress(intf, channel, 0x00).is_err() {
-            eprintln!("Error could not set \"set-in-progress\" to \"set-complete\"");
+            errln!("Error could not set \"set-in-progress\" to \"set-complete\"");
             return -1;
         }
     }
@@ -607,24 +607,24 @@ fn set(intf: &mut dyn Interface, args: &[String]) -> i32 {
 }
 
 fn invalid_bool(param: &str, value: &str) -> i32 {
-    eprintln!("Invalid value {value} for parameter {param}");
-    eprintln!("Valid values are true and false");
+    errln!("Invalid value {value} for parameter {param}");
+    errln!("Valid values are true and false");
     -1
 }
 
 fn print_set_usage() {
-    eprintln!("SOL set parameters and values:");
-    eprintln!("  set-in-progress             set-complete | set-in-progress | commit-write");
-    eprintln!("  enabled                     true | false");
-    eprintln!("  force-encryption            true | false");
-    eprintln!("  force-authentication        true | false");
-    eprintln!("  privilege-level             user | operator | admin | oem");
-    eprintln!("  character-accumulate-level  <in 5 ms increments>");
-    eprintln!("  character-send-threshold    N");
-    eprintln!("  retry-count                 N");
-    eprintln!("  retry-interval              <in 10 ms increments>");
-    eprintln!("  non-volatile-bit-rate       serial | 9.6 | 19.2 | 38.4 | 57.6 | 115.2");
-    eprintln!("  volatile-bit-rate           serial | 9.6 | 19.2 | 38.4 | 57.6 | 115.2");
+    errln!("SOL set parameters and values:");
+    errln!("  set-in-progress             set-complete | set-in-progress | commit-write");
+    errln!("  enabled                     true | false");
+    errln!("  force-encryption            true | false");
+    errln!("  force-authentication        true | false");
+    errln!("  privilege-level             user | operator | admin | oem");
+    errln!("  character-accumulate-level  <in 5 ms increments>");
+    errln!("  character-send-threshold    N");
+    errln!("  retry-count                 N");
+    errln!("  retry-interval              <in 10 ms increments>");
+    errln!("  non-volatile-bit-rate       serial | 9.6 | 19.2 | 38.4 | 57.6 | 115.2");
+    errln!("  volatile-bit-rate           serial | 9.6 | 19.2 | 38.4 | 57.6 | 115.2");
 }
 
 // ---------------------------------------------------------------------------
@@ -638,7 +638,7 @@ fn deactivate(intf: &mut dyn Interface, args: &[String]) -> i32 {
             match parse_u8(v) {
                 Some(i) if (1..=15).contains(&i) => instance = i,
                 _ => {
-                    eprintln!("Given instance '{v}' is invalid.");
+                    errln!("Given instance '{v}' is invalid.");
                     print_usage();
                     return -1;
                 }
@@ -651,7 +651,7 @@ fn deactivate(intf: &mut dyn Interface, args: &[String]) -> i32 {
     match intf.sol_deactivate(instance) {
         Ok(()) => 0,
         Err(e) => {
-            eprintln!("Error de-activating SOL payload: {e}");
+            errln!("Error de-activating SOL payload: {e}");
             -1
         }
     }
@@ -670,7 +670,7 @@ fn activate(intf: &mut dyn Interface, args: &[String]) -> i32 {
                     match parse_u8(v) {
                         Some(i) if (1..=15).contains(&i) => instance = i,
                         _ => {
-                            eprintln!("Given instance '{v}' is invalid.");
+                            errln!("Given instance '{v}' is invalid.");
                             print_usage();
                             return -1;
                         }
@@ -690,12 +690,12 @@ fn activate(intf: &mut dyn Interface, args: &[String]) -> i32 {
         assert_cts: false,
     };
     if let Err(e) = intf.sol_activate(&req) {
-        eprintln!("Error activating SOL payload: {e}");
+        errln!("Error activating SOL payload: {e}");
         return -1;
     }
 
     let escape_char = intf.session_params().sol_escape_char;
-    println!(
+    outln!(
         "[SOL Session operational.  Use {}? for help]",
         escape_char as char
     );
@@ -731,16 +731,16 @@ fn process_input(
             *escape_pending = false;
             match ch {
                 b'.' => {
-                    println!("{}. [terminated ipmitool]", escape_char as char);
+                    outln!("{}. [terminated ipmitool]", escape_char as char);
                     result = 1;
                 }
                 0x1a | 0x18 => {
                     // ^Z / ^X: suspend. Real suspension needs SIGTSTP, which we
                     // do not attempt here; report and continue.
-                    println!("{}^Z [suspend ipmitool]", escape_char as char);
+                    outln!("{}^Z [suspend ipmitool]", escape_char as char);
                 }
                 b'B' => {
-                    println!("{}B [send break]", escape_char as char);
+                    outln!("{}B [send break]", escape_char as char);
                     let _ = intf.sol_send(&SolPacket::generate_break());
                 }
                 b'?' => print_escape_sequences(escape_char),
@@ -762,7 +762,7 @@ fn process_input(
     if !out.is_empty() {
         let pkt = SolPacket::data(out);
         if let Err(e) = intf.sol_send(&pkt) {
-            eprintln!("Error sending SOL data: {e}");
+            errln!("Error sending SOL data: {e}");
             return Err(());
         }
     }
@@ -771,15 +771,15 @@ fn process_input(
 
 fn print_escape_sequences(escape_char: u8) {
     let e = escape_char as char;
-    println!("{e}?");
-    println!("\tSupported escape sequences:");
-    println!("\t{e}.  - terminate connection");
-    println!("\t{e}^Z - suspend ipmitool");
-    println!("\t{e}^X - suspend ipmitool, but don't restore tty on restart");
-    println!("\t{e}B  - send break");
-    println!("\t{e}?  - this message");
-    println!("\t{e}{e}  - send the escape character by typing it twice");
-    println!("\t(Note that escapes are only recognized immediately after newline.)");
+    outln!("{e}?");
+    outln!("\tSupported escape sequences:");
+    outln!("\t{e}.  - terminate connection");
+    outln!("\t{e}^Z - suspend ipmitool");
+    outln!("\t{e}^X - suspend ipmitool, but don't restore tty on restart");
+    outln!("\t{e}B  - send break");
+    outln!("\t{e}?  - this message");
+    outln!("\t{e}{e}  - send the escape character by typing it twice");
+    outln!("\t(Note that escapes are only recognized immediately after newline.)");
 }
 
 #[cfg(unix)]
@@ -789,7 +789,7 @@ fn interactive(intf: &mut dyn Interface, disable_keepalive: bool, use_sol_keepal
     let term = match RawTerminal::enter() {
         Ok(t) => t,
         Err(e) => {
-            eprintln!("Error: Unable to enter raw terminal mode: {e}");
+            errln!("Error: Unable to enter raw terminal mode: {e}");
             return -1;
         }
     };
@@ -817,7 +817,7 @@ fn interactive(intf: &mut dyn Interface, disable_keepalive: bool, use_sol_keepal
             } else {
                 keepalive_failures += 1;
                 if keepalive_failures >= MAX_KEEPALIVE_RETRY {
-                    eprintln!("Error: No response to keepalive - Terminating session");
+                    errln!("Error: No response to keepalive - Terminating session");
                     should_exit = true;
                     continue;
                 }
@@ -838,7 +838,7 @@ fn interactive(intf: &mut dyn Interface, disable_keepalive: bool, use_sol_keepal
         ];
         let n = unsafe { libc::poll(fds.as_mut_ptr(), 2, 500) };
         if n < 0 {
-            eprintln!("Error: poll failed");
+            errln!("Error: poll failed");
             should_exit = true;
             continue;
         }
@@ -885,7 +885,7 @@ fn interactive(intf: &mut dyn Interface, disable_keepalive: bool, use_sol_keepal
                     }
                 }
                 Err(_) => {
-                    eprintln!("SOL session closed by BMC");
+                    errln!("SOL session closed by BMC");
                     should_exit = true;
                     bmc_closed = true;
                 }
@@ -907,7 +907,7 @@ fn interactive(
     _disable_keepalive: bool,
     _use_sol_keepalive: bool,
 ) -> i32 {
-    eprintln!("Error: interactive SOL requires a Unix terminal");
+    errln!("Error: interactive SOL requires a Unix terminal");
     -1
 }
 
