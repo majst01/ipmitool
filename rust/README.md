@@ -22,6 +22,7 @@ This is a first vertical slice. It implements:
 | `fru` command read paths (`print`/`list`, `read`) | done |
 | `fru` write paths (`write`, `edit`, `get`, `internaluse`, `upgEkey`) | not yet (stubbed) |
 | `user` command (`summary`, `list`, `set name`, `set password`, `enable`, `disable`, `priv`, `test`) | done |
+| `dcmi` command (`power reading`) | done; other subcommands stubbed |
 | Bridging (`-t`/`-T`/`-b`/`-B`) | not yet |
 | Other interfaces (`lan`, `open`, serial, ...) | not yet |
 
@@ -59,6 +60,8 @@ ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru read 0 /tmp/fru.bin
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> user list
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> user summary
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> user set password 2 s3cret
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> dcmi power reading
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> dcmi power reading 1_min
 ```
 
 Supported options include `-I`, `-H`, `-p`, `-U`, `-P`/`-f`/`-E`/`-a`,
@@ -90,6 +93,8 @@ decoding and user-command argument validation.
   and `fru print <id>`) and `fru read <id> <file>` are supported; `write`,
   `edit`, `get`, `internaluse` and `upgEkey` are stubbed with a
   "not implemented" message.
+- `dcmi` implements only `power reading [<sample_time>]`; its other subcommands
+  are stubbed.
 - `fru print` (without an id) walks only the builtin FRU device: the SDR-based
   FRU / MC locator scan from the C implementation is not implemented, so
   satellite-controller FRUs are not enumerated.

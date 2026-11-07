@@ -156,14 +156,17 @@ func TestSolAckMatchesSequence(t *testing.T) {
 }
 
 func TestActivateResponseParsesSizesAndPort(t *testing.T) {
-	// NOTE: encodes the ported (off-by-two) offsets; see rust/spec-drift.md.
+	// Layout after the completion code: aux[0..4], inbound[4..6],
+	// outbound[6..8], port[8..10], vlan[10..12] (spec Table 24-2).
 	data := make([]byte, 12)
-	data[6] = 0x56
-	data[7] = 0x02
-	data[8] = 0x10
-	data[9] = 0x00
-	data[10] = 0x6f
-	data[11] = 0x02
+	data[4] = 0x56
+	data[5] = 0x02
+	data[6] = 0x10
+	data[7] = 0x00
+	data[8] = 0x6f
+	data[9] = 0x02
+	data[10] = 0xff
+	data[11] = 0xff
 	var rsp SolActivateResponse
 	if err := rsp.Parse(data); err != nil {
 		t.Fatal(err)

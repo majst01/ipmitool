@@ -422,3 +422,127 @@ fn sol_deactivate_unsupported() {
     assert_eq!(code, -1);
     assert!(err.contains("Error de-activating SOL payload"), "stderr: {err}");
 }
+
+// ---------------------------------------------------------------------------
+// dcmi
+// ---------------------------------------------------------------------------
+
+/// Build an 18-byte DCMI Get Power Reading response.
+fn power_reading_data(curr: u16, min: u16, max: u16, avg: u16, time: u32, sample: u32, state: u8) -> Vec<u8> {
+    let mut d = vec![0u8; 18];
+    d[0] = 0xDC;
+    d[1..3].copy_from_slice(&curr.to_le_bytes());
+    d[3..5].copy_from_slice(&min.to_le_bytes());
+    d[5..7].copy_from_slice(&max.to_le_bytes());
+    d[7..9].copy_from_slice(&avg.to_le_bytes());
+    d[9..13].copy_from_slice(&time.to_le_bytes());
+    d[13..17].copy_from_slice(&sample.to_le_bytes());
+    d[17] = state;
+    d
+}
+
+#[test]
+fn dcmi_power_reading() {
+    let ((code, reqs), out, _err) = capture(|| {
+        let mut m = MockInterface::new(|_| {
+            // 3661 < 86400 → relative "S+ 01:01:01"; 3000 ms → 3 seconds.
+            Ok(ok(power_reading_data(100, 90, 110, 95, 3661, 3000, 0x40)))
+        });
+        let code = commands::dcmi::main(&mut m, &args(&["power", "reading"]));
+        (code, m.recorded())
+    });
+
+    assert_eq!(code, 0);
+    assert_eq!(reqs.len(), 1);
+    assert_eq!(reqs[0].netfn, consts::NETFN_DCGRP);
+    assert_eq!(reqs[0].cmd, 0x02);
+    assert_eq!(reqs[0].data, vec![0xDC, 0x01, 0x00, 0x00]);
+    for want in [
+        "    Instantaneous power reading:                   100 Watts",
+        "    Minimum during sampling period:                 90 Watts",
+        "    Maximum during sampling period:                110 Watts",
+        "    Average power reading over sample period:       95 Watts",
+        "    IPMI timestamp:                           S+ 01:01:01",
+        "    Sampling period:                          00000003 Seconds.",
+        "    Power reading state is:                   activated",
+    ] {
+        assert!(out.contains(want), "missing {want:?} in: {out}");
+    }
+}
+
+#[test]
+fn dcmi_power_reading_enhanced_uses_sample_selector() {
+    let ((code, reqs), out, _err) = capture(|| {
+        let mut m = MockInterface::new(|_| {
+            // sample field carries the same selector the request used.
+            Ok(ok(power_reading_data(0, 0, 0, 0, 0, 0x41, 0x00)))
+        });
+        let code = commands::dcmi::main(&mut m, &args(&["power", "reading", "1_min"]));
+        (code, m.recorded())
+    });
+
+    assert_eq!(code, 0);
+    assert_eq!(reqs[0].data, vec![0xDC, 0x02, 0x41, 0x00]);
+    assert!(out.contains("1_min "), "stdout: {out}");
+    assert!(out.contains("deactivated"), "stdout: {out}");
+}
+
+#[test]
+fn dcmi_power_reading_invalid_sample_time() {
+    let (code, out, err) = capture(|| {
+        let mut m = MockInterface::always_ok();
+        commands::dcmi::main(&mut m, &args(&["power", "reading", "bogus"]))
+    });
+    assert_eq!(code, -1);
+    assert!(
+        err.contains("Invalid sample time. Valid times are: "),
+        "stderr: {err}"
+    );
+    // The horizontal listing emits " | " separators on stdout.
+    assert!(out.contains(" | "), "stdout: {out}");
+}
+
+#[test]
+fn dcmi_power_reading_dcmi_ccode() {
+    let (code, _out, err) = capture(|| {
+        let mut m = MockInterface::new(|_| Ok(ccode(0x84)));
+        commands::dcmi::main(&mut m, &args(&["power", "reading"]))
+    });
+    assert_eq!(code, -1);
+    assert!(
+        err.contains("DCMI request failed because: Power/Thermal limit out of range (84)"),
+        "stderr: {err}"
+    );
+}
+
+#[test]
+fn dcmi_power_reading_wrong_group_extension() {
+    let (code, out, _err) = capture(|| {
+        let mut m = MockInterface::new(|_| {
+            let mut d = power_reading_data(0, 0, 0, 0, 0, 0, 0);
+            d[0] = 0x00;
+            Ok(ok(d))
+        });
+        commands::dcmi::main(&mut m, &args(&["power", "reading"]))
+    });
+    assert_eq!(code, -1);
+    assert!(
+        out.contains("A valid DCMI command was not returned! (0)"),
+        "stdout: {out}"
+    );
+}
+
+#[test]
+fn dcmi_help_lists_commands() {
+    let (code, _out, err) = capture(|| {
+        let mut m = MockInterface::always_ok();
+        commands::dcmi::main(&mut m, &[] as &[String])
+    });
+    assert_eq!(code, -1);
+    assert!(
+        err.contains("Data Center Management Interface commands"),
+        "stderr: {err}"
+    );
+    assert!(err.contains("    power    Platform power limit command options"), "stderr: {err}");
+}
+

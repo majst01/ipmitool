@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"codeberg.org/ipmitool/ipmitool/cmd/ipmitool/commands/chassis"
+	"codeberg.org/ipmitool/ipmitool/cmd/ipmitool/commands/dcmi"
 	"codeberg.org/ipmitool/ipmitool/cmd/ipmitool/commands/fru"
 	"codeberg.org/ipmitool/ipmitool/cmd/ipmitool/commands/mc"
 	"codeberg.org/ipmitool/ipmitool/cmd/ipmitool/commands/raw"
@@ -119,6 +120,8 @@ func dispatch(intf ipmicore.Interface, command string, cargs []string) int {
 		return fru.Main(intf, cargs)
 	case "user":
 		return user.Main(intf, cargs)
+	case "dcmi":
+		return dcmi.Main(intf, cargs)
 	default:
 		fmt.Fprintf(os.Stderr, "Invalid command: %s\n", command)
 		return -1
@@ -153,4 +156,5 @@ func printUsage() {
 	fmt.Println("  sol         Configure and connect to the Serial-over-LAN interface")
 	fmt.Println("  fru         Print Field Replaceable Unit (FRU) inventory information")
 	fmt.Println("  user        Manage IPMI user accounts and channel access")
+	fmt.Println("  dcmi        Data Center Management Interface")
 }

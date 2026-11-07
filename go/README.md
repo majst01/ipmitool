@@ -23,6 +23,7 @@ The full feature set of the Rust port is implemented:
 | `fru` command read paths (`print`/`list`, `read`) | done |
 | `fru` write paths (`write`, `edit`, `get`, `internaluse`, `upgEkey`) | not yet (stubbed) |
 | `user` command (`summary`, `list`, `set name`, `set password`, `enable`, `disable`, `priv`, `test`) | done |
+| `dcmi` command (`power reading`) | done; other subcommands stubbed |
 | Bridging (`-t`/`-T`/`-b`/`-B`) | not yet |
 | Other interfaces (`lan`, `open`, serial, ...) | not yet |
 
@@ -47,6 +48,7 @@ go/
     └── commands/                # one package per command
         ├── raw/  chassis/  mc/
         ├── sol/  fru/      user/
+        ├── dcmi/
 ```
 
 Command packages each expose `Main(intf ipmicore.Interface, args []string) int`;
@@ -75,6 +77,8 @@ ipmitool -I lanplus -H <bmc> -U <user> -P <pass> sol info
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru print
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> fru read 0 /tmp/fru.bin
 ipmitool -I lanplus -H <bmc> -U <user> -P <pass> user list
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> dcmi power reading
+ipmitool -I lanplus -H <bmc> -U <user> -P <pass> dcmi power reading 1_min
 ```
 
 Supported options include `-I`, `-H`, `-p`, `-U`, `-P`/`-f`/`-E`/`-a`,
@@ -107,6 +111,8 @@ exactly for `-V`, `-h`, no-args, and a range of malformed options.
   builds. The `^Z`/`^X` suspend escape sequences are reported but not performed.
 - `-a`/`user set password` password prompts read from stdin with echo enabled.
 - `fru` implements only the read paths; its write subcommands are stubbed.
+- `dcmi` implements only `power reading [<sample_time>]`; its other subcommands
+  are stubbed.
 - Manufacturer names are read at runtime from the IANA PEN registry, searched
   under `$HOME/.local/usr/share/misc`, `/usr/share/misc` and
   `/usr/local/share/misc`, exactly like the C and Rust implementations.

@@ -119,6 +119,7 @@ fn dispatch(intf: &mut dyn Interface, command: &str, args: &[String]) -> i32 {
         "sol" => commands::sol::main(intf, args),
         "fru" => commands::fru::main(intf, args),
         "user" => commands::user::main(intf, args),
+        "dcmi" => commands::dcmi::main(intf, args),
         other => {
             errln!("Invalid command: {other}");
             -1
@@ -154,4 +155,5 @@ fn print_usage() {
     outln!("  sol         Configure and connect to the Serial-over-LAN interface");
     outln!("  fru         Print Field Replaceable Unit (FRU) inventory information");
     outln!("  user        Manage IPMI user accounts and channel access");
+    outln!("  dcmi        Data Center Management Interface");
 }

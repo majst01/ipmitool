@@ -135,16 +135,17 @@ type SolActivateResponse struct {
 	Port                uint16
 }
 
-// Parse mirrors `SolActivateResponse::parse`, including its documented
-// off-by-two field offsets (see rust/spec-drift.md, finding 1).
+// Parse mirrors `SolActivateResponse::parse`. The 12-byte data maps, after the
+// completion code, to aux[0..4], inbound[4..6], outbound[6..8], port[8..10],
+// vlan[10..12] per spec Table 24-2 (see rust/spec-drift.md, finding 1).
 func (r *SolActivateResponse) Parse(data []byte) error {
 	if len(data) != 12 {
 		return NewProtocol(fmt.Sprintf(
 			"Unexpected data length (%d) received in payload activation response", len(data)))
 	}
-	r.InboundPayloadSize = uint16(data[6]) | uint16(data[7])<<8
-	r.OutboundPayloadSize = uint16(data[8]) | uint16(data[9])<<8
-	r.Port = uint16(data[10]) | uint16(data[11])<<8
+	r.InboundPayloadSize = uint16(data[4]) | uint16(data[5])<<8
+	r.OutboundPayloadSize = uint16(data[6]) | uint16(data[7])<<8
+	r.Port = uint16(data[8]) | uint16(data[9])<<8
 	return nil
 }
 
